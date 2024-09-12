@@ -1,5 +1,5 @@
 import os
-import subprocess
+import shutil
 import asyncio
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
@@ -48,7 +48,7 @@ class ProgramTester:
                                                         f"-I{CSMITH_HOME}/include", "-o", exe, "-w",
                                                         stdout=asyncio.subprocess.PIPE, cwd=root)
         await process.communicate()
-        assert process.returncode == 0
+        assert process.returncode == 0, f"Failed to compile {file}"
 
         return exe
 
@@ -84,7 +84,7 @@ class ProgramTester:
         outputs = [value for _, value in outputs]
         if len(set(outputs_dict.values())) == 1:
             print(f"All programs are equivalent with output: {outputs[0].strip()}")
-            os.rmdir(self.file_path)
+            shutil.rmtree(self.file_path)
             return True
         else:
             print("Programs are not equivalent")
