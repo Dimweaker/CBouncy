@@ -63,6 +63,9 @@ class ProgramTester:
                 tasks.append(self.recheck(exe))
             outputs = await asyncio.gather(*tasks)
 
+        outputs_dict = {key: value for key, value in outputs}
+        outputs = [value for _, value in outputs]
+
         if len(set(outputs)) == 1:
             print(f"All programs are equivalent with output: {outputs[0].strip()}")
             shutil.rmtree(self.file_path)
