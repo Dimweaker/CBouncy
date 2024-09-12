@@ -1,10 +1,19 @@
 import asyncio
 import os
 import time
+import argparse
 
 from program_generator import ProgramGenerator
 from code_processor import CodeProcessor
 from program_tester import ProgramTester
+
+args = argparse.ArgumentParser()
+args.add_argument("-r", "--root_path", type=str, default="tmp")
+args.add_argument("-n", "--num_tests", type=int, default=50)
+args.add_argument("-t", "--timeout", type=float, default=0.3)
+args.add_argument("-s", "--save_output", type=bool, default=False)
+args.add_argument("-n_g", "--generate_num", type=int, default=5)
+args.add_argument("-n_m", "--mutate_num", type=int, default=10)
 
 
 class CBouncy:
@@ -42,22 +51,26 @@ class CBouncy:
         print("All programs are correct")
 
 
-async def run(i):
-    print(f"--- Test {i} ---")
+async def run(root_path: str, epoch_i: int, generate_num: int = 5, mutate_num: int = 10,
+                timeout: float = 0.3, save_output: bool = False):
+    print(f"--- Test {epoch_i} ---")
     start = time.time()
-    test_name = f"tmp/test{i}"
+    test_name = f"{root_path.strip('/')}/test_{epoch_i}"
     # if not os.path.exists(test_name):
     #     os.makedirs(test_name)
     # cb = CBouncy(test_name)
     # cb.run()
     if not os.path.exists(test_name):
         os.makedirs(test_name)
-    cb = CBouncy(test_name)
+    cb = CBouncy(test_name, generate_num, mutate_num, timeout, save_output)
     await cb.run()
-    print(f"--- Test {i} finished in {time.time() - start} seconds ---")
+    print(f"--- Test {epoch_i} finished in {time.time() - start} seconds ---")
+    if not os.listdir(test_name):
+        os.rmdir(test_name)
     print()
 
 
 if __name__ == "__main__":
-    for i in range(50):
-        asyncio.run(run(i))
+    args = args.parse_args()
+    for i in range(args.num_tests):
+        asyncio.run(run(args.root_path, i, args.generate_num, args.mutate_num, args.timeout, args.save_output))
