@@ -91,7 +91,3 @@ class ProgramTester:
             for key, value in outputs_dict.items():
                 print(f"File: {key} Output: {value}")
             return False
-
-if __name__ == "__main__":
-    pt = ProgramTester("tmp/csmith_Ze8luX")
-    pt.test_programs()

@@ -34,13 +34,7 @@ class CBouncy:
         file_list = await ProgramGenerator(self.root_path).generate_programs(self.generate_num)
 
         print("---Mutating and testing programs---")
-        # for file in file_list:
-        #     pram_name = file.split("/")[-1]
-        #     filename = f"{file}/{pram_name}.c"
-        #     cp = CodeProcessor(filename)
-        #     cp.generate(file, self.mutate_num)
-        #     flag = await ProgramTester(file, self.timeout, self.save_output).test_programs()
-        #     assert flag, f"Find bugs in {filename}"
+
         for file in file_list:
             pram_name = file.split("/")[-1]
             filename = f"{file}/{pram_name}.c"

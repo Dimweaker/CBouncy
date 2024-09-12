@@ -57,10 +57,3 @@ class CodeProcessor:
             file_list.append(file_path_)
         return file_list
 
-
-
-if __name__ == "__main__":
-    src = "tmp/5FLZZD_seed.c"
-    cp = CodeProcessor(src)
-    print(cp.functions)
-    print(cp.generate("tmp/"))
