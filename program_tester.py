@@ -10,40 +10,9 @@ class ProgramTester:
         self.timeout = timeout
         self.save_output = save_output
 
-    # def test_programs(self):
-    #     outputs = dict()
-    #     for root, _, files in os.walk(self.file_path):
-    #         for file in files:
-    #             if file.endswith(".c"):
-    #                 exe = f"{file.strip('.c')}_gcc"
-    #                 process = subprocess.Popen(["gcc", file,
-    #                                             f"-I{CSMITH_HOME}/include", "-o", exe, "-w"],
-    #                                            stdout=subprocess.PIPE, cwd=root)
-    #                 process.communicate()
-    #                 try:
-    #                     process = subprocess.Popen([f"./{exe}"], stdout=subprocess.PIPE, cwd=root)
-    #                     output, _ = process.communicate(timeout=self.timeout)
-    #                     output = output.decode("utf-8")
-    #                 except subprocess.TimeoutExpired:
-    #                     output = "Timeout"
-    #
-    #                 outputs[file] = output
-    #                 if self.save_output:
-    #                     with open(f"{root}/{exe}.txt", "w") as f:
-    #                         f.write(output)
-    #
-    #     if len(set(outputs.values())) == 1:
-    #         print(f"All programs are equivalent with output: {list(outputs.values())[0].strip()}")
-    #         return True
-    #     else:
-    #         print("Programs are not equivalent")
-    #         for key, value in outputs.items():
-    #             print(f"File: {key} Output: {value}")
-    #         return False
-
     @staticmethod
     async def compile_program(root: str, file: str):
-        exe = f"{file.strip('.c')}_gcc"
+        exe = f"{file.rstrip('.c')}_gcc"
         process = await asyncio.create_subprocess_exec("gcc", file,
                                                         f"-I{CSMITH_HOME}/include", "-o", exe, "-w",
                                                         stdout=asyncio.subprocess.PIPE, cwd=root)
@@ -52,10 +21,12 @@ class ProgramTester:
 
         return exe
 
-    async def run_program(self, root: str, exe: str):
+    async def run_program(self, root: str, exe: str, timeout : float = None):
+        if timeout is None:
+            timeout = self.timeout
         process = await asyncio.create_subprocess_exec(f"./{exe}", stdout=asyncio.subprocess.PIPE, cwd=root)
         try:
-            output, _ = await asyncio.wait_for(process.communicate(), timeout=self.timeout)
+            output, _ = await asyncio.wait_for(process.communicate(), timeout=timeout)
             output = output.decode("utf-8")
 
         except asyncio.TimeoutError:
@@ -71,6 +42,9 @@ class ProgramTester:
                 f.write(output)
         return exe, output
 
+    async def recheck(self, exe):
+        output = await self.run_program(self.file_path, exe, timeout=30)
+        return output
 
     async def test_programs(self):
         tasks = []
@@ -82,7 +56,14 @@ class ProgramTester:
         outputs = await asyncio.gather(*tasks)
         outputs_dict = {key: value for key, value in outputs}
         outputs = [value for _, value in outputs]
-        if len(set(outputs_dict.values())) == 1:
+
+        if len(set(outputs)) != 1:
+            tasks = []
+            for exe in outputs_dict.keys():
+                tasks.append(self.recheck(exe))
+            outputs = await asyncio.gather(*tasks)
+
+        if len(set(outputs)) == 1:
             print(f"All programs are equivalent with output: {outputs[0].strip()}")
             shutil.rmtree(self.file_path)
             return True
