@@ -5,7 +5,8 @@ import asyncio
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class ProgramTester:
-    def __init__(self, file_path: str, timeout: float = 0.3, save_output: bool = False, stop_on_fail: bool = False):
+    def __init__(self, file_path: str, timeout: float = 0.3,
+                 save_output: bool = False, stop_on_fail: bool = False):
         self.file_path = file_path
         self.timeout = timeout
         self.save_output = save_output

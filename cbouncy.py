@@ -19,7 +19,8 @@ args.add_argument("-s_f", "--stop_on_fail", type=bool, default=False)
 
 class CBouncy:
     def __init__(self, root_path : str, generate_num: int = 5, mutate_num: int = 10,
-                 timeout: float = 0.3, save_output: bool = False, stop_on_fail: bool = False):
+                 timeout: float = 0.3, save_output: bool = False, stop_on_fail: bool = False,
+                 my_args=None):
         self.root_path = root_path
         if not os.path.exists(self.root_path):
             os.makedirs(self.root_path)
@@ -28,12 +29,13 @@ class CBouncy:
         self.timeout = timeout
         self.save_output = save_output
         self.stop_on_fail = stop_on_fail
+        self.my_args = my_args
 
     async def run(self):
         print("--- Start testing ---")
         print("---Generating programs---")
 
-        file_list = await ProgramGenerator(self.root_path).generate_programs(self.generate_num)
+        file_list = await ProgramGenerator(self.root_path, self.my_args).generate_programs(self.generate_num)
 
         print("---Mutating and testing programs---")
 
@@ -49,7 +51,8 @@ class CBouncy:
 
 
 async def run(root_path: str, epoch_i: int, generate_num: int = 5, mutate_num: int = 10,
-                timeout: float = 0.3, save_output: bool = False, stop_on_fail: bool = False):
+              timeout: float = 0.3, save_output: bool = False, stop_on_fail: bool = False,
+              my_args=None):
     print(f"--- Test {epoch_i} ---")
     start = time.time()
     test_name = f"{root_path.strip('/')}/test_{epoch_i}"
@@ -65,7 +68,8 @@ async def run(root_path: str, epoch_i: int, generate_num: int = 5, mutate_num: i
 
 
 if __name__ == "__main__":
-    args = args.parse_args()
+    args, unknown = args.parse_known_args()
     for i in range(args.num_tests):
         asyncio.run(run(args.root_path, i, args.generate_num, args.mutate_num,
-                        args.timeout, args.save_output, args.stop_on_fail))
+                        args.timeout, args.save_output, args.stop_on_fail,
+                        unknown))
