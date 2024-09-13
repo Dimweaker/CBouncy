@@ -44,7 +44,7 @@ class ProgramTester:
     @staticmethod
     async def compile_program(root: str, file: str):
         exe = f"{file.strip('.c')}_gcc"
-        process = await asyncio.create_subprocess_exec("gcc", file,
+        process = await asyncio.create_subprocess_exec("gcc-9", file,
                                                         f"-I{CSMITH_HOME}/include", "-o", exe, "-w",
                                                         stdout=asyncio.subprocess.PIPE, cwd=root)
         await process.communicate()
