@@ -44,7 +44,7 @@ class ProgramTester:
 
     async def recheck(self, exe):
         output = await self.run_program(self.file_path, exe, timeout=30)
-        return output
+        return exe, output
 
     async def test_programs(self):
         tasks = []
