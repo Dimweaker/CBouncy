@@ -14,11 +14,11 @@ args.add_argument("-t", "--timeout", type=float, default=0.3)
 args.add_argument("-s", "--save_output", type=bool, default=False)
 args.add_argument("-n_g", "--generate_num", type=int, default=5)
 args.add_argument("-n_m", "--mutate_num", type=int, default=10)
-
+args.add_argument("--save_dir", type=str, default="")
 
 class CBouncy:
     def __init__(self, root_path : str, generate_num: int = 5, mutate_num: int = 10,
-                 timeout: float = 0.3, save_output: bool = False):
+                 timeout: float = 0.3, save_output: bool = False, save_dir: str = ""):
         self.root_path = root_path
         if not os.path.exists(self.root_path):
             os.makedirs(self.root_path)
@@ -67,4 +67,4 @@ async def run(root_path: str, epoch_i: int, generate_num: int = 5, mutate_num: i
 if __name__ == "__main__":
     args = args.parse_args()
     for i in range(args.num_tests):
-        asyncio.run(run(args.root_path, i, args.generate_num, args.mutate_num, args.timeout, args.save_output))
+        asyncio.run(run(args.root_path, i, args.generate_num, args.mutate_num, args.timeout, args.save_output, args.save_dir))
