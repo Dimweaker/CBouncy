@@ -26,7 +26,6 @@ class ProgramGenerator:
                 valid_name = True
 
         file_path = f"{root}/{filename}.c"
-        print(self.my_args)
         process = await asyncio.create_subprocess_exec(f"{CSMITH_HOME}/bin/csmith", "--output",
                                                        file_path, *self.my_args, stdout=asyncio.subprocess.PIPE)
         await process.communicate()
