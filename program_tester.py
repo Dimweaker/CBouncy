@@ -5,19 +5,23 @@ import asyncio
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class ProgramTester:
-    def __init__(self, file_path: str, timeout: float = 0.3, save_output: bool = False):
+    def __init__(self, file_path: str, timeout: float = 0.3, save_output: bool = False, stop_on_fail: bool = False):
         self.file_path = file_path
         self.timeout = timeout
         self.save_output = save_output
+        self.stop_on_fail = stop_on_fail
 
-    @staticmethod
-    async def compile_program(root: str, file: str):
+    async def compile_program(self, root: str, file: str):
         exe = f"{file.rstrip('.c')}_gcc"
         process = await asyncio.create_subprocess_exec("gcc", file,
                                                         f"-I{CSMITH_HOME}/include", "-o", exe, "-w",
                                                         stdout=asyncio.subprocess.PIPE, cwd=root)
         await process.communicate()
-        assert process.returncode == 0, f"Failed to compile {file}"
+        if self.stop_on_fail:
+            assert process.returncode == 0, f"Failed to compile {file}"
+        else:
+            with open(f"{root}/compile_log.txt", "a") as f:
+                f.write(f"{file} : {process.returncode}\n")
 
         return exe
 
@@ -72,6 +76,8 @@ class ProgramTester:
             return True
         else:
             print("Programs are not equivalent")
-            for key, value in outputs_dict.items():
-                print(f"File: {key} Output: {value}")
+            with open(f"{self.file_path}/outputs.txt", "w") as f:
+                for key, value in outputs_dict.items():
+                    f.write(f"File: {key} Output: {value}\n")
+                    print(f"File: {key} Output: {value}")
             return False
