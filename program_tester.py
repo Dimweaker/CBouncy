@@ -12,8 +12,7 @@ class ProgramTester:
         self.save_output = save_output
         self.stop_on_fail = stop_on_fail
 
-    @staticmethod
-    async def compile_program(root: str, file: str):
+    async def compile_program(self, root: str, file: str):
         exe = f"{file.strip('.c')}_gcc"
         process = await asyncio.create_subprocess_exec("gcc-9", file,
                                                         f"-I{CSMITH_HOME}/include", "-o", exe, "-w",

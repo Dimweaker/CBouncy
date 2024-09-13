@@ -59,7 +59,7 @@ async def run(root_path: str, epoch_i: int, generate_num: int = 5, mutate_num: i
 
     if not os.path.exists(test_name):
         os.makedirs(test_name)
-    cb = CBouncy(test_name, generate_num, mutate_num, timeout, save_output, stop_on_fail)
+    cb = CBouncy(test_name, generate_num, mutate_num, timeout, save_output, stop_on_fail, my_args)
     await cb.run()
     print(f"--- Test {epoch_i} finished in {time.time() - start} seconds ---")
     if not os.listdir(test_name):
