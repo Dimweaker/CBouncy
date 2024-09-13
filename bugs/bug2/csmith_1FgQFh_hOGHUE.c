@@ -575,7 +575,7 @@ static int8_t  func_29(uint8_t * p_30, uint8_t * const  p_31, uint8_t * p_32, ui
  */
 static const int32_t * func_55(uint32_t  p_56)
 { /* block id: 9 */
-    uint32_t l_61 = 0x6FE54384L;
+    uint32_t l_61 = 0xffffffffL-48;
     uint16_t *l_1423 = &g_1419;
     int16_t l_1424 = (-4L);
     int32_t *l_1425[4][5] = {{&g_52,&g_52,&g_52,&g_52,&g_52},{&g_52,&g_52,&g_52,&g_52,&g_52},{&g_52,&g_52,&g_52,&g_52,&g_52},{&g_52,&g_52,&g_52,&g_52,&g_52}};
