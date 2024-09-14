@@ -1,6 +1,9 @@
 import os
+import random
 import shutil
 import asyncio
+
+from optimize_options import SIMPLE_OPTS, COMPLEX_OPTS
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
@@ -14,8 +17,9 @@ class ProgramTester:
 
     async def compile_program(self, root: str, file: str):
         exe = f"{file.rstrip('.c')}_gcc"
+        opts = "-" + random.choice(SIMPLE_OPTS)
         process = await asyncio.create_subprocess_exec("gcc", file,
-                                                        f"-I{CSMITH_HOME}/include", "-o", exe, "-w",
+                                                        f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts,
                                                         stdout=asyncio.subprocess.PIPE, cwd=root)
         await process.communicate()
         if self.stop_on_fail:
