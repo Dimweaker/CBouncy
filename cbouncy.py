@@ -11,7 +11,7 @@ args = argparse.ArgumentParser()
 args.add_argument("-r", "--root_path", type=str, default="tmp")
 args.add_argument("-n", "--num_tests", type=int, default=50)
 args.add_argument("-t", "--timeout", type=float, default=0.3)
-args.add_argument("-s", "--save_output", type=bool, default=False)
+args.add_argument("-s", "--save_output", type=bool, default=True)
 args.add_argument("-c", "--complex_opts", type=bool, default=False)
 args.add_argument("-m", "--max_opts", type=int, default=35)
 args.add_argument("-n_g", "--generate_num", type=int, default=5)
@@ -21,7 +21,7 @@ args.add_argument("-s_f", "--stop_on_fail", type=bool, default=False)
 
 class CBouncy:
     def __init__(self, root_path : str, generate_num: int = 5, mutate_num: int = 10,
-                 timeout: float = 0.3, max_opts: int = 35, save_output: bool = False,
+                 timeout: float = 0.3, max_opts: int = 35, save_output: bool = True,
                  complex_opts: bool = False, stop_on_fail: bool = False, my_args=None):
         self.root_path = root_path
         if not os.path.exists(self.root_path):
@@ -55,7 +55,7 @@ class CBouncy:
 
 
 async def run(root_path: str, epoch_i: int, generate_num: int = 5, mutate_num: int = 10,
-            timeout: float = 0.3, max_opts: int = 35, save_output: bool = False,
+            timeout: float = 0.3, max_opts: int = 35, save_output: bool = True,
               complex_opts: bool = False, stop_on_fail: bool = False, my_args=None):
     print(f"--- Test {epoch_i} ---")
     start = time.time()

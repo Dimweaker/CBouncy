@@ -3,13 +3,13 @@ import random
 import shutil
 import asyncio
 
-from optimize_options import SIMPLE_OPTS, COMPLEX_OPTS
+from optimize_options import SIMPLE_OPTS
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class ProgramTester:
     def __init__(self, file_path: str, timeout: float = 0.3,
-                 save_output: bool = False, stop_on_fail: bool = False):
+                 save_output: bool = True, stop_on_fail: bool = False):
         self.file_path = file_path
         self.timeout = timeout
         self.save_output = save_output
@@ -18,15 +18,15 @@ class ProgramTester:
     async def compile_program(self, root: str, file: str):
         exe = f"{file.rstrip('.c')}_gcc"
         opts = "-" + random.choice(SIMPLE_OPTS)
-        process = await asyncio.create_subprocess_exec("gcc", file,
-                                                        f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts,
-                                                        stdout=asyncio.subprocess.PIPE, cwd=root)
+        cmd = ["gcc", file, f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, cwd=root)
         await process.communicate()
         if self.stop_on_fail:
             assert process.returncode == 0, f"Failed to compile {file}"
         else:
-            with open(f"{root}/compile_log.txt", "a") as f:
-                f.write(f"{file} : {process.returncode}\n")
+            if self.save_output:
+                with open(f"{root}/log.txt", "a") as f:
+                    f.write(f"{' '.join(cmd)} : {process.returncode}\n")
 
         return exe
 
@@ -47,8 +47,8 @@ class ProgramTester:
         exe = await self.compile_program(root, file)
         output = await self.run_program(root, exe)
         if self.save_output:
-            with open(f"{root}/{exe}.txt", "w") as f:
-                f.write(output)
+            with open(f"{root}/log.txt", "a") as f:
+                f.write(f"Output for {file}: {output.strip()}\n")
         return exe, output
 
     async def recheck(self, exe):
@@ -83,6 +83,6 @@ class ProgramTester:
             print("Programs are not equivalent")
             with open(f"{self.file_path}/outputs.txt", "w") as f:
                 for key, value in outputs_dict.items():
-                    f.write(f"File: {key} Output: {value}\n")
-                    print(f"File: {key} Output: {value}")
+                    f.write(f"File: {key} Output: {value.strip()}\n")
+                    print(f"File: {key} Output: {value.strip()}")
             return False
