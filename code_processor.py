@@ -1,15 +1,15 @@
 import random
 import re
 
-from optimize_options import SIMPLE_OPTS
+from optimize_options import SIMPLE_OPTS, COMPLEX_OPTS
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
-OPT_FORMAT = "__attribute__((optimize({})));"
+OPT_FORMAT = '__attribute__((optimize("{}")));'
 CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 class CodeProcessor:
-    def __init__(self, code: str):
+    def __init__(self, code: str, complex_opts: bool = False, max_opts: int = 35):
         if code.endswith(".c"):
             self.func_name = code.split("/")[-1].split(".")[0]
             with open(code, "r") as f:
@@ -19,6 +19,8 @@ class CodeProcessor:
             self.func_name = "".join([random.choice(CHARS) for _ in range(6)])
         self.declarations = self.get_declarations()
         self.functions = self.get_functions()
+        self.complex_opts = complex_opts
+        self.max_opts = max_opts
 
     def get_declarations(self) -> str:
         """Get forward declarations from a C source file"""
@@ -33,11 +35,19 @@ class CodeProcessor:
     def add_opt(self, opt_dict=None):
         if opt_dict is None:
             funcs = [re.search(rf"(\S*)\(.*\);", func).group() for func in self.functions]
-            opt_dict = {func: random.choice(SIMPLE_OPTS) for func in funcs}
+            if self.complex_opts:
+                opts_n = random.randint(1, self.max_opts)
+                opt_dict = {func: random.sample(COMPLEX_OPTS, opts_n) for func in funcs}
+            else:
+                opt_dict = {func: random.choice(SIMPLE_OPTS) for func in funcs}
 
         code = self.raw_code
         for key, value in opt_dict.items():
-            code = code.replace(key, f"{key[:-1]} {OPT_FORMAT.format(value)};")
+            if self.complex_opts:
+                opt_str = ",".join(value)
+                code = code.replace(key, f"{key[:-1]} {OPT_FORMAT.format(opt_str)}")
+            else:
+                code = code.replace(key, f"{key[:-1]} {OPT_FORMAT.format(value)}")
 
         return code
 

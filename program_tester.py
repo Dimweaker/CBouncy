@@ -1,6 +1,9 @@
 import os
+import random
 import shutil
 import asyncio
+
+from optimize_options import SIMPLE_OPTS, COMPLEX_OPTS
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
