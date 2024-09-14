@@ -7,7 +7,7 @@ from optimize_options import SIMPLE_OPTS
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
-class ProgramTester:
+class Oracle:
     def __init__(self, file_path: str, timeout: float = 0.3,
                  save_output: bool = True, stop_on_fail: bool = False):
         self.file_path = file_path

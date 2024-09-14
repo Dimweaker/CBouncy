@@ -2,37 +2,41 @@ import random
 import re
 
 from optimize_options import SIMPLE_OPTS, COMPLEX_OPTS
+from filemanager import *
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
 OPT_FORMAT = '__attribute__((optimize("{}")));'
 CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-class CodeProcessor:
-    def __init__(self, code: str, complex_opts: bool = False, max_opts: int = 35):
-        if code.endswith(".c"):
-            self.func_name = code.split("/")[-1].split(".")[0]
-            with open(code, "r") as f:
+class CodeMutator:
+    def __init__(self, case : CaseManager, complex_opts: bool = False, max_opts: int = 35):
+        self.case = case
+        orig_file = case.orig.filepath
+        if orig_file.endswith(".c"):
+            self.file_normname = orig_file.split("/")[-1].split(".")[0]
+            with open(orig_file, "r") as f:
                 self.raw_code = f.read()
         else:
-            self.raw_code = code
-            self.func_name = "".join([random.choice(CHARS) for _ in range(6)])
-        self.declarations = self.get_declarations()
+            self.raw_code = orig_file
+            self.file_normname = "".join([random.choice(CHARS) for _ in range(6)])
+        self.declaration_scope = self.get_declaration_scope()
         self.functions = self.get_functions()
         self.complex_opts = complex_opts
         self.max_opts = max_opts
 
-    def get_declarations(self) -> str:
+    def get_declaration_scope(self) -> str:
         """Get forward declarations from a C source file"""
-        declarations = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", self.raw_code, re.S)
-        return declarations.group() if declarations else ""
+        declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", self.raw_code, re.S)
+        return declaration_scope.group() if declaration_scope else ""
 
     def get_functions(self) -> list[str]:
         """Get functions from a C source file"""
-        functions = re.findall(rf"\n(.+?;)", self.declarations, re.S)
+        functions = re.findall(rf"\n(.+?;)", self.declaration_scope, re.S)
         return functions
 
     def add_opt(self, opt_dict=None):
+        # TODO: store selected opts
         if opt_dict is None:
             funcs = [re.search(rf"(\S*)\(.*\);", func).group() for func in self.functions]
             if self.complex_opts:
@@ -62,7 +66,7 @@ class CodeProcessor:
         for i in range(num):
             code = self.add_opt()
             suffix = "".join([random.choice(CHARS) for _ in range(6)])
-            file_path_ = f"{file_path}/{self.func_name}_{suffix}.c"
+            file_path_ = f"{file_path}/{self.file_normname}_{suffix}.c"
             self.write_to_file(file_path_, code)
             file_list.append(file_path_)
         return file_list
