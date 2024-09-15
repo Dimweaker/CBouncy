@@ -1,7 +1,7 @@
 import random
 import re
 
-from optimize_options import SIMPLE_OPTS, COMPLEX_OPTS
+from configs import SIMPLE_OPTS, COMPLEX_OPTS
 from filemanager import *
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
@@ -60,7 +60,7 @@ class CodeMutator:
         with open(file_path, "w") as f:
             f.write(code)
 
-    def generate(self, file_path: str, num: int = 5) -> list[str]:
+    def generate(self, num: int = 5) -> list[str]:
         file_path = file_path.strip("/")
         file_list = []
         for i in range(num):

@@ -11,6 +11,7 @@ class MutantFileINFO(FileINFO):
         super().__init__(path)
         self.compiler = None    # TODO: Add compiler info
         self.function : dict[str: list[str]] = {}
+        self.global_opts : list[str] = []
 
     def add_func_opts(self, function : str, opts : list[str]):
         self.function[function] = opts
@@ -21,7 +22,7 @@ class CaseManager:
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
 
-    def add_orig(self, orig: FileINFO):
+    def set_orig(self, orig: FileINFO):
         self.orig = orig
         
     def add_mutant(self, mutant: MutantFileINFO):
