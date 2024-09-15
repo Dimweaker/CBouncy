@@ -1,3 +1,5 @@
+# /usr/bin/python3
+
 import asyncio
 import os
 import time
@@ -47,7 +49,8 @@ class CBouncy:
         for case in case_list:
             cp = CodeMutator(case, self.complex_opts, self.max_opts)
             cp.mutate(self.mutate_num)
-            flag = await Oracle(case, self.timeout, self.save_output, self.stop_on_fail).test_programs()
+            flag = await Oracle(case, self.timeout, self.save_output, self.stop_on_fail).test_case()
+            # if not flag:
             case.save_log()
             if self.stop_on_fail:
                 assert flag, f"Find bugs in {case.case_dir}"

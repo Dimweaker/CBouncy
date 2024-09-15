@@ -43,7 +43,7 @@ class CodeMutator:
                 opts_n = random.randint(1, self.max_opts)
                 opt_dict = {func: random.sample(COMPLEX_OPTS, opts_n) for func in funcs}
             else:
-                opt_dict = {func: random.choice(SIMPLE_OPTS) for func in funcs}
+                opt_dict = {func: [random.choice(SIMPLE_OPTS)] for func in funcs}
 
         code = self.raw_code
         for key, value in opt_dict.items():
