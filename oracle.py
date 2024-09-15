@@ -3,14 +3,15 @@ import random
 import shutil
 import asyncio
 
-from configs import SIMPLE_OPTS
+from optimize_options import SIMPLE_OPTS
+from filemanager import *
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class Oracle:
-    def __init__(self, file_path: str, timeout: float = 0.3,
+    def __init__(self, case: CaseManager, timeout: float = 0.3,
                  save_output: bool = True, stop_on_fail: bool = False):
-        self.file_path = file_path
+        self.case = case
         self.timeout = timeout
         self.save_output = save_output
         self.stop_on_fail = stop_on_fail
@@ -24,9 +25,7 @@ class Oracle:
         if self.stop_on_fail:
             assert process.returncode == 0, f"Failed to compile {file}"
         else:
-            if self.save_output:
-                with open(f"{root}/log.txt", "a") as f:
-                    f.write(f"{' '.join(cmd)} : {process.returncode}\n")
+            self.case.add_log(f"{' '.join(cmd)} : {process.returncode}\n")
 
         return exe
 
@@ -46,21 +45,21 @@ class Oracle:
     async def process_file(self, root: str, file: str):
         exe = await self.compile_program(root, file)
         output = await self.run_program(root, exe)
-        if self.save_output:
-            with open(f"{root}/log.txt", "a") as f:
-                f.write(f"Output for {file}: {output.strip()}\n")
+        self.case.add_log(f"Output for {file}: {output.strip()}\n")
         return exe, output
 
     async def recheck(self, exe):
-        output = await self.run_program(self.file_path, exe, timeout=30)
+        output = await self.run_program(self.case.case_dir, exe, timeout=30)
+        self.case.add_log(f"Recheck {exe}: {output.strip()}\n")
         return exe, output
 
     async def test_programs(self):
         tasks = []
-        for root, _, files in os.walk(self.file_path):
-            for file in files:
-                if file.endswith(".c"):
-                    tasks.append(self.process_file(root, file))
+        root = self.case.case_dir
+        ori_file = self.case.orig.file
+        tasks.append(self.process_file(root, ori_file))
+        for mutant in self.case.mutants:
+            tasks.append(self.process_file(root, mutant.file))
 
         outputs = await asyncio.gather(*tasks)
         outputs_dict = {key: value for key, value in outputs}
@@ -77,12 +76,10 @@ class Oracle:
 
         if len(set(outputs)) == 1:
             print(f"All programs are equivalent with output: {outputs[0].strip()}")
-            shutil.rmtree(self.file_path)
+            shutil.rmtree(self.case.case_dir)
             return True
         else:
             print("Programs are not equivalent")
-            with open(f"{self.file_path}/outputs.txt", "w") as f:
-                for key, value in outputs_dict.items():
-                    f.write(f"File: {key} Output: {value.strip()}\n")
-                    print(f"File: {key} Output: {value.strip()}")
+            for key, value in outputs_dict.items():
+                print(f"File: {key} Output: {value.strip()}")
             return False
