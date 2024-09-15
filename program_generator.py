@@ -1,6 +1,7 @@
 import os
 import random
 import asyncio
+from tempfile import mkstemp, mkdtemp
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -17,17 +18,10 @@ class ProgramGenerator:
             self.my_args = []
 
     async def generate_program(self):
-        valid_name = False
-        while not valid_name:
-            filename = "csmith_" + "".join([random.choice(CHARS) for _ in range(6)])
-            root = f"{self.file_path}/{filename}"
-            if not os.path.exists(root):
-                os.makedirs(root)
-                valid_name = True
-
-        file_path = f"{root}/{filename}.c"
+        dir = mkdtemp(prefix="csmith_", dir=self.file_path)
+        rel_dir = dir.split("/")[-1]+".c"
         process = await asyncio.create_subprocess_exec(f"{CSMITH_HOME}/bin/csmith", "--output",
-                                                       file_path, *self.my_args, stdout=asyncio.subprocess.PIPE)
+                                                       rel_dir, *self.my_args, stdout=asyncio.subprocess.PIPE)
         await process.communicate()
         return root
 
