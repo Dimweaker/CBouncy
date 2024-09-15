@@ -9,7 +9,7 @@ from mutator import CodeMutator
 from oracle import Oracle
 
 args = argparse.ArgumentParser()
-args.add_argument("--tmp_path", type=str, default="/tmp")
+args.add_argument("--tmp_path", type=str, default="tmp")
 args.add_argument("-n", "--num_tests", type=int, default=50)
 args.add_argument("-t", "--timeout", type=float, default=0.3)
 args.add_argument("-s", "--save_output", type=bool, default=True)
@@ -21,10 +21,10 @@ args.add_argument("-s_f", "--stop_on_fail", type=bool, default=False)
 
 
 class CBouncy:
-    def __init__(self, tmp_path : str, generate_num: int = 5, mutate_num: int = 10,
+    def __init__(self, test_dir : str, generate_num: int = 5, mutate_num: int = 10,
                  timeout: float = 0.3, max_opts: int = 35, save_output: bool = True,
                  complex_opts: bool = False, stop_on_fail: bool = False, my_args=None):
-        self.root_path = os.path.abspath(tmp_path)
+        self.root_path = os.path.abspath(test_dir)
         if not os.path.exists(self.root_path):
             os.makedirs(self.root_path)
         self.generate_num = generate_num
@@ -46,20 +46,21 @@ class CBouncy:
 
         for case in case_list:
             cp = CodeMutator(case, self.complex_opts, self.max_opts)
-            cp.generate(case, self.mutate_num)
+            cp.mutate(self.mutate_num)
             flag = await Oracle(case, self.timeout, self.save_output, self.stop_on_fail).test_programs()
+            case.save_log()
             if self.stop_on_fail:
                 assert flag, f"Find bugs in {case.case_dir}"
         print("All programs are correct")
 
 
 async def run(tmp_path: str, epoch_i: int, generate_num: int = 5, mutate_num: int = 10,
-            timeout: float = 0.3, max_opts: int = 35, save_output: bool = True,
+              timeout: float = 0.3, max_opts: int = 35, save_output: bool = True,
               complex_opts: bool = False, stop_on_fail: bool = False, my_args=None):
     tmp_path = os.path.abspath(tmp_path)
     print(f"--- Test {epoch_i} ---")
     start = time.time()
-    test_dir = tmp_path.join(f"/test_{epoch_i}")
+    test_dir = os.path.join(tmp_path, f"test_{epoch_i}")
 
     cb = CBouncy(test_dir, generate_num, mutate_num, timeout,
                  max_opts, save_output, complex_opts, stop_on_fail,

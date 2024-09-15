@@ -18,7 +18,7 @@ class ProgramGenerator:
             self.my_args = []
 
     async def generate_program(self, epoch : int) -> FileINFO:
-        test_dir = self.file_path.join(f"case_{epoch}")
+        test_dir = os.path.join(self.file_path, f"case_{epoch}")
         if not os.path.exists(test_dir):
             os.makedirs(test_dir)
 
@@ -28,7 +28,7 @@ class ProgramGenerator:
                                                        stdout=asyncio.subprocess.PIPE,
                                                        cwd=test_dir)
         await process.communicate()
-        return FileINFO(test_dir.join("orig.c"))
+        return FileINFO(os.path.join(test_dir, "orig.c"))
 
     async def generate_programs(self, num: int) -> list[CaseManager]:
         print("---Generating programs---")

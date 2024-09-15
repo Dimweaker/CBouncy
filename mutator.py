@@ -35,7 +35,7 @@ class CodeMutator:
         functions = re.findall(rf"\n(.+?;)", self.declaration_scope, re.S)
         return functions
 
-    def add_opt(self, opt_dict=None):
+    def add_opt(self, opt_dict=None) -> (str, dict[str, list[str]]):
         # TODO: store selected opts
         if opt_dict is None:
             funcs = [re.search(rf"(\S*)\(.*\);", func).group() for func in self.functions]
@@ -53,21 +53,18 @@ class CodeMutator:
             else:
                 code = code.replace(key, f"{key[:-1]} {OPT_FORMAT.format(value)}")
 
-        return code
+        return code, opt_dict
 
     @staticmethod
-    def write_to_file(file_path: str, code: str):
-        with open(file_path, "w") as f:
+    def write_to_file(mutant_file_path: str, code: str):
+        with open(mutant_file_path, "w") as f:
             f.write(code)
 
-    def generate(self, file_path: str, num: int = 5) -> list[str]:
-        file_path = file_path.strip("/")
-        file_list = []
+    def mutate(self, num: int = 5):
         for i in range(num):
-            code = self.add_opt()
+            code, opt_dict = self.add_opt()
             suffix = "".join([random.choice(CHARS) for _ in range(6)])
-            file_path_ = f"{file_path}/{self.file_normname}_{suffix}.c"
-            self.write_to_file(file_path_, code)
-            file_list.append(file_path_)
-        return file_list
+            mutant_file = f"{self.case.case_dir}/{self.file_normname}_{suffix}.c"
+            self.write_to_file(mutant_file, code)
+            self.case.add_mutant(MutantFileINFO(mutant_file, opt_dict))
 
