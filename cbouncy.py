@@ -14,12 +14,12 @@ args = argparse.ArgumentParser()
 args.add_argument("--tmp_path", type=str, default="tmp")
 args.add_argument("-n", "--num_tests", type=int, default=50)
 args.add_argument("-t", "--timeout", type=float, default=0.3)
-args.add_argument("-s", "--save_output", type=bool, default=True)
-args.add_argument("-c", "--complex_opts", type=bool, default=False)
+args.add_argument("-s", "--save_output", action='store_true')
+args.add_argument("-c", "--complex_opts", action='store_true')
 args.add_argument("-m", "--max_opts", type=int, default=35)
 args.add_argument("-n_g", "--generate_num", type=int, default=5)
 args.add_argument("-n_m", "--mutate_num", type=int, default=10)
-args.add_argument("-s_f", "--stop_on_fail", type=bool, default=False)
+args.add_argument("-s_f", "--stop_on_fail", action='store_true')
 
 
 class CBouncy:
@@ -50,8 +50,8 @@ class CBouncy:
             cp = CodeMutator(case, self.complex_opts, self.max_opts)
             cp.mutate(self.mutate_num)
             flag = await Oracle(case, self.timeout, self.save_output, self.stop_on_fail).test_case()
-            # if not flag:
-            case.save_log()
+            if not flag:
+                case.save_log()
             if self.stop_on_fail:
                 assert flag, f"Find bugs in {case.case_dir}"
         print("All programs are correct")
