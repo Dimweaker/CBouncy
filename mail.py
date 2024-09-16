@@ -16,10 +16,3 @@ def send_mail(config: dict, subject: str, content: str):
     server.quit()
 
 
-
-if __name__ == "__main__":
-    with open("config.json", "r") as f:
-        config = json.load(f)
-
-    time.sleep(100)
-    send_mail(config, "Test", "This is a test email")
