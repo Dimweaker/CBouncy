@@ -17,7 +17,7 @@ class CodeMutator:
         self.max_opts = max_opts
         self.input_buffer = input_buffer
         self.output_buffer = output_buffer
-        self.mutate_processes = [Process(target=self.mutate) for _ in range(5)]
+        self.mutate_processes = [Process(target=self.mutate) for _ in range(2)]
 
     @staticmethod
     def get_functions(raw_code : str) -> list[str]:
