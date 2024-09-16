@@ -1,3 +1,4 @@
+import json
 import random
 import shutil
 from multiprocessing import Process
@@ -5,8 +6,11 @@ import subprocess
 
 from configs import SIMPLE_OPTS
 from filemanager import *
+from mail import send_mail
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
+with open("config.json", "r") as f:
+    MAIL_CONFIG = json.load(f)
 
 class Oracle:
     def __init__(self, timeout: float = 0.3,
@@ -95,4 +99,6 @@ class Oracle:
                 flag =  False
 
             if not flag:
+                send_mail(MAIL_CONFIG, f"A bug is found in {case.case_dir}!",
+                          "A bug is found in {case.case_dir}!\nPlease check the output files.")
                 case.save_log()                
