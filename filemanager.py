@@ -1,4 +1,5 @@
 import os
+import threading
 
 class FileINFO:
     def __init__(self, filepath):
@@ -17,6 +18,12 @@ class FileINFO:
 
     def get_abspath(self) -> str:
         return self.filepath
+
+    def get_text(self) -> str:
+        with open(self.filepath, 'r') as f:
+            text = f.read()
+            f.close()
+        return text 
 
     def __str__(self):
         return \
@@ -61,9 +68,33 @@ class CaseManager:
     def add_mutant(self, mutant: MutantFileINFO):
         self.mutants.append(mutant)
 
+    def get_casename(self) -> str:
+        return os.path.basename(self.case_dir)
+
     def save_log(self):
         with open(f"{self.case_dir}/log", 'w') as f:
             f.write(self.orig)
             for mutant in self.mutants:
                 f.write(mutant)
             f.close()
+
+class CaseBuffer:
+    def __init__(self, size):
+        self.buffer : list[CaseManager] = []
+        self.lock = threading.Lock() # protect buffer
+        self.p_sem = threading.Semaphore(size) # producer semaphore
+        self.c_sem = threading.Semaphore(0) # comsumer semaphore
+        
+    def push(self, case: CaseManager):
+        self.p_sem.acquire(blocking=True)
+        with self.lock:
+            self.buffer.append(case)
+        self.c_sem.release(1)
+            
+    def get(self) -> CaseManager:
+        self.c_sem.acquire(blocking=True)
+        with self.lock:
+            case = self.buffer.pop(0)
+        self.p_sem.release(1)
+        return case    
+        

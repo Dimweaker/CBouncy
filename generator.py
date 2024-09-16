@@ -1,40 +1,59 @@
 import os
 import random
 import asyncio
+from multiprocessing import Process, Value
+import subprocess
 
 from filemanager import *
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class ProgramGenerator:
-    def __init__(self, file_path: str, my_args: list[str] = None):
+    def __init__(self, file_path: str, my_args: list[str] = None, output_buffer: CaseBuffer = None):
         self.file_path = file_path
         if not os.path.exists(self.file_path):
             os.makedirs(self.file_path)
-
+            
+        self.epoch = Value('i', 0)
+        self.output_buffer = output_buffer
+        
         if my_args is not None:
             self.my_args = my_args
         else:
             self.my_args = []
 
-    async def generate_program(self, epoch : int) -> FileINFO:
-        test_dir = os.path.join(self.file_path, f"case_{epoch}")
-        if not os.path.exists(test_dir):
-            os.makedirs(test_dir)
+        self.gen_processes = [Process(target=self.generate_case) for i in range(10)] # processes for csmith program generating
 
-        process = await asyncio.create_subprocess_exec(f"{CSMITH_HOME}/bin/csmith",
-                                                       "--output", "orig.c",
-                                                       *self.my_args, 
-                                                       stdout=asyncio.subprocess.PIPE,
-                                                       cwd=test_dir)
-        await process.communicate()
-        return FileINFO(os.path.join(test_dir, "orig.c"))
+    def generate_case(self):
+        while True:
+            # generate a csmith program
+            stdout = subprocess.run([f"{CSMITH_HOME}/bin/csmith", *self.my_args], 
+                                    stdout=subprocess.PIPE).stdout
 
-    async def generate_programs(self, num: int) -> list[CaseManager]:
-        print("---Generating programs---")
+            if stdout:
+                orig_program = stdout.decode('utf-8')
 
-        case_list = []
-        for i in range(num):
-            case_list.append(CaseManager(await self.generate_program(i)))
-        return case_list
+            # log
+            print(f"--- Generated orig case {self.epoch.value}---")
+            # write program to file
+            test_dir = os.path.join(self.file_path, f"case_{self.epoch.value}")
+            self.epoch.value += 1
+
+            if not os.path.exists(test_dir):
+                os.makedirs(test_dir)
+
+            with open(os.path.join(test_dir, "orig.c"), 'w') as f:
+                f.write(orig_program)
+                f.close()
+
+            case = CaseManager(FileINFO(os.path.join(test_dir, "orig.c")))
+            self.output_buffer.push(case)
+
+    def run(self):
+        for process in self.gen_processes:
+            process.start()
+
+    def join(self):
+        for process in self.gen_processes:
+            process.join()
 

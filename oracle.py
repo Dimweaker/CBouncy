@@ -2,6 +2,8 @@ import os
 import random
 import shutil
 import asyncio
+from multiprocessing import Process
+import subprocess
 
 from configs import SIMPLE_OPTS
 from filemanager import *
@@ -9,76 +11,89 @@ from filemanager import *
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class Oracle:
-    def __init__(self, case: CaseManager, timeout: float = 0.3,
-                 save_output: bool = True, stop_on_fail: bool = False):
-        self.case = case
+    def __init__(self, timeout: float = 0.3,
+                 save_output: bool = True, stop_on_fail: bool = False,
+                 input_buffer: CaseBuffer = None):
         self.timeout = timeout
         self.save_output = save_output
         self.stop_on_fail = stop_on_fail
+        self.input_buffer = input_buffer
+        self.oracle_processes = [Process(target=self.test_case) for _ in range(5)] # 5 processes for testing
 
-    async def compile_program(self, file: FileINFO):
+    def run(self):
+        for process in self.oracle_processes:
+            process.start()
+
+    def join(self):
+        for process in self.oracle_processes:
+            process.join()
+
+    def compile_program(self, file: FileINFO):
         exe = f"{file.get_basename().rstrip('.c')}_gcc"
         opts = "-" + random.choice(SIMPLE_OPTS)
         cmd = ["gcc", file.get_abspath(), f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts]
         file.set_cmd(" ".join(cmd))
-        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, cwd=file.get_cwd())
-        await process.communicate()
+        result = subprocess.run(*cmd, stdout=subprocess.PIPE, cwd=file.get_cwd())
         if self.stop_on_fail:
-            assert process.returncode == 0, f"Failed to compile {file}"
-
+            assert result.returncode == 0, f"Failed to compile {file}"
         return exe
 
-    async def run_program(self, file: FileINFO, exe: str, timeout : float = None):
+    def run_program(self, file: FileINFO, exe: str, timeout : float = None):
         if timeout is None:
             timeout = self.timeout
-        process = await asyncio.create_subprocess_exec(f"./{exe}", stdout=asyncio.subprocess.PIPE, cwd=file.get_cwd())
         try:
-            output, _ = await asyncio.wait_for(process.communicate(), timeout=timeout)
-            output = output.decode("utf-8")
+            result = subprocess.run(f"./{exe}", stdout=subprocess.PIPE, cwd=file.get_cwd(), timeout=timeout)
+            output = result.stdout.decode("utf-8")
 
-        except asyncio.TimeoutError:
+        except subprocess.TimeoutExpired as e:
             output = "Timeout"
-            process.kill()
 
         file.res = output
         return output
 
-    async def process_file(self, file: FileINFO):
-        exe = await self.compile_program(file)
-        output = await self.run_program(file, exe)
+    def process_file(self, file: FileINFO):
+        exe = self.compile_program(file)
+        output = self.run_program(file, exe)
         return exe, output
 
-    async def recheck(self, exe):
-        output = await self.run_program(self.case.case_dir, exe, timeout=30)
+    def process_case(self, case: CaseManager):
+        tasks : dict = {}
+        exe, output = self.process_file(case.orig)
+        tasks.update({exe: output})
+        for mutant in case.mutants:
+            exe, output = self.process_file(mutant)
+            tasks.update({exe: output})
+        return tasks
+
+    def recheck(self, case, exe):
+        output = self.run_program(case.case_dir, exe, timeout=30)
         return exe, output
 
-    async def test_case(self):
-        tasks = []
-        tasks.append(self.process_file(self.case.orig))
-        for mutant in self.case.mutants:
-            tasks.append(self.process_file(mutant))
+    def test_case(self):
+        while True:
+            case = self.input_buffer.get()
+            results : dict = self.process_case(case)
+            outputs = results.values()
+            exes = results.keys()
 
-        outputs = await asyncio.gather(*tasks)
-        outputs_dict = {key: value for key, value in outputs}
-        outputs = [value for _, value in outputs]
+            # find diff in outputs
+            if len(set(outputs)) != 1:
+                tasks = {}
+                for exe in exes:
+                    new_exe, output = self.recheck(case, exe)
+                    tasks.update({new_exe: output})
+                outputs = [o for _, o in tasks]
 
-        # find diff in outputs
-        if len(set(outputs)) != 1:
-            tasks = []
-            for exe in outputs_dict.keys():
-                tasks.append(self.recheck(exe))
-            outputs = await asyncio.gather(*tasks)
+            # diff eliminated in recheck
+            if len(set(outputs)) == 1:
+                print(f"All programs are equivalent with output: {outputs[0].strip()}")
+                shutil.rmtree(case.case_dir)
+                flag = True
+            else:
+                print("Programs are not equivalent")
+                for key, value in tasks.items():
+                    print(f"File: {key} Output: {value.strip()}")
+                flag =  False
 
-            outputs_dict = {key: value for key, value in outputs}
-            outputs = [value for _, value in outputs]
-
-        # diff eliminated in recheck
-        if len(set(outputs)) == 1:
-            print(f"All programs are equivalent with output: {outputs[0].strip()}")
-            shutil.rmtree(self.case.case_dir)
-            return True
-        else:
-            print("Programs are not equivalent")
-            for key, value in outputs_dict.items():
-                print(f"File: {key} Output: {value.strip()}")
-            return False
+            if not flag:
+                case.save_log()                
