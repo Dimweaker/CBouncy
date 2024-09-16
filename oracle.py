@@ -18,7 +18,7 @@ class Oracle:
         self.save_output = save_output
         self.stop_on_fail = stop_on_fail
         self.input_buffer = input_buffer
-        self.oracle_processes = [Process(target=self.test_case) for _ in range(5)] # 5 processes for testing
+        self.oracle_processes = [Process(target=self.test_case) for _ in range(1)] # 5 processes for testing
 
     def run(self):
         for process in self.oracle_processes:

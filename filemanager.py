@@ -88,6 +88,6 @@ class CaseBuffer:
         self.queue.put(case)
             
     def get(self) -> CaseManager:
-        case = self.queue.get()
+        case = self.queue.get(True)
         return case    
         
