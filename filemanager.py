@@ -90,8 +90,6 @@ class CaseBuffer:
         self.p_sem.acquire(blocking=True)
         with self.lock:
             self.buffer.append(case)
-            print("1", case)
-            print("2", self.buffer)
         self.c_sem.release(1)
             
     def get(self) -> CaseManager:
