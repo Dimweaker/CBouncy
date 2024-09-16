@@ -22,7 +22,7 @@ class ProgramGenerator:
         else:
             self.my_args = []
 
-        self.gen_processes = [Process(target=self.generate_case) for i in range(10)] # processes for csmith program generating
+        self.gen_processes = [Process(target=self.generate_case) for _ in range(10)] # processes for csmith program generating
 
     def generate_case(self):
         while True:
@@ -30,8 +30,7 @@ class ProgramGenerator:
             stdout = subprocess.run([f"{CSMITH_HOME}/bin/csmith", *self.my_args], 
                                     stdout=subprocess.PIPE).stdout
 
-            if stdout:
-                orig_program = stdout.decode('utf-8')
+            orig_program = stdout.decode('utf-8')
 
             # log
             print(f"--- Generated orig case {self.epoch.value}---")

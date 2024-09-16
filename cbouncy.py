@@ -58,7 +58,9 @@ class CBouncy:
 def run(tmp_path: str, generate_num: int = 5, mutate_num: int = 10,
               timeout: float = 0.3, max_opts: int = 35, save_output: bool = True,
               complex_opts: bool = False, stop_on_fail: bool = False, my_args=None):
-    if tmp_path == "":
+    if tmp_path:
+        test_dir = tmp_path
+    else:
         test_dir = mkdtemp(prefix="tmp_", dir=os.getcwd())
 
     cb = CBouncy(test_dir, generate_num, mutate_num, timeout,

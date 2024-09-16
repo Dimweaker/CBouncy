@@ -47,13 +47,14 @@ class MutantFileINFO(FileINFO):
         self.function[function] = opts
     
     def __str__(self):
+        func_opts = "\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.function.items()])
         return \
 f"""{self.filepath}
     isMutant: 1
     cmd {self.compile_cmd}
     res {self.res}
 %%
-    {"\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.function.items()])}
+    {func_opts}
 %%
 """
 
@@ -74,9 +75,9 @@ class CaseManager:
 
     def save_log(self):
         with open(f"{self.case_dir}/log", 'w') as f:
-            f.write(self.orig)
+            f.write(str(self.orig))
             for mutant in self.mutants:
-                f.write(mutant)
+                f.write(str(mutant))
             f.close()
 
 class CaseBuffer:
