@@ -1,5 +1,6 @@
 import os
 import threading
+from multiprocessing import Queue
 
 class FileINFO:
     def __init__(self, filepath):
@@ -52,7 +53,7 @@ f"""{self.filepath}
     cmd {self.compile_cmd}
     res {self.res}
 %%
-    {"\n    ".join([f"{k}\n\t{" ".join(v)}" for k, v in self.function.items()])}
+    {"\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.function.items()])}
 %%
 """
 
@@ -80,21 +81,12 @@ class CaseManager:
 
 class CaseBuffer:
     def __init__(self, size):
-        self.buffer : list[CaseManager] = []
-        self.lock = threading.Lock() # protect buffer
-        self.p_sem = threading.Semaphore(size) # producer semaphore
-        self.c_sem = threading.Semaphore(0) # comsumer semaphore
+        self.queue = Queue(size)
         
     def push(self, case: CaseManager):
-        self.p_sem.acquire(blocking=True)
-        with self.lock:
-            self.buffer.append(case)
-        self.c_sem.release(1)
+        self.queue.put(case)
             
     def get(self) -> CaseManager:
-        self.c_sem.acquire(blocking=True)
-        with self.lock:
-            case = self.buffer.pop(0)
-        self.p_sem.release(1)
+        case = self.queue.get()
         return case    
         

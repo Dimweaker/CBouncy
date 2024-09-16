@@ -36,8 +36,8 @@ class ProgramGenerator:
             # log
             print(f"--- Generated orig case {self.epoch.value}---")
             # write program to file
-            test_dir = os.path.join(self.file_path, f"case_{self.epoch.value}")
             self.epoch.value += 1
+            test_dir = os.path.join(self.file_path, f"case_{self.epoch.value}")
 
             if not os.path.exists(test_dir):
                 os.makedirs(test_dir)

@@ -65,7 +65,7 @@ class Oracle:
             tasks.update({exe: output})
         return tasks
 
-    def recheck(self, case, exe):
+    def recheck(self, case : CaseManager, exe):
         output = self.run_program(case.case_dir, exe, timeout=30)
         return exe, output
 
