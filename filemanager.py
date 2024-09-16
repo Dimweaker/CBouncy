@@ -46,13 +46,14 @@ class MutantFileINFO(FileINFO):
         self.function[function] = opts
     
     def __str__(self):
+        func_opts = "\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.function.items()])
         return \
 f"""{self.filepath}
     isMutant: 1
     cmd {self.compile_cmd}
     res {self.res}
 %%
-    {"\n    ".join([f"{k}\n\t{" ".join(v)}" for k, v in self.function.items()])}
+    {func_opts}
 %%
 """
 
@@ -73,9 +74,9 @@ class CaseManager:
 
     def save_log(self):
         with open(f"{self.case_dir}/log", 'w') as f:
-            f.write(self.orig)
+            f.write(str(self.orig))
             for mutant in self.mutants:
-                f.write(mutant)
+                f.write(str(mutant))
             f.close()
 
 class CaseBuffer:
@@ -83,12 +84,14 @@ class CaseBuffer:
         self.buffer : list[CaseManager] = []
         self.lock = threading.Lock() # protect buffer
         self.p_sem = threading.Semaphore(size) # producer semaphore
-        self.c_sem = threading.Semaphore(0) # comsumer semaphore
+        self.c_sem = threading.Semaphore(0) # consumer semaphore
         
     def push(self, case: CaseManager):
         self.p_sem.acquire(blocking=True)
         with self.lock:
             self.buffer.append(case)
+            print("1", case)
+            print("2", self.buffer)
         self.c_sem.release(1)
             
     def get(self) -> CaseManager:
