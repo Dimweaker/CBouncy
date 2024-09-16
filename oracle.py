@@ -18,7 +18,7 @@ class Oracle:
         self.save_output = save_output
         self.stop_on_fail = stop_on_fail
         self.input_buffer = input_buffer
-        self.oracle_processes = [Process(target=self.test_case) for _ in range(1)] # 5 processes for testing
+        self.oracle_processes = [Process(target=self.test_case) for _ in range(5)] # 5 processes for testing
 
     def run(self):
         for process in self.oracle_processes:
@@ -33,9 +33,10 @@ class Oracle:
         opts = "-" + random.choice(SIMPLE_OPTS)
         cmd = ["gcc", file.get_abspath(), f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts]
         file.set_cmd(" ".join(cmd))
-        result = subprocess.run(*cmd, stdout=subprocess.PIPE, cwd=file.get_cwd())
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=file.get_cwd())
+        process.communicate()
         if self.stop_on_fail:
-            assert result.returncode == 0, f"Failed to compile {file}"
+            assert process.returncode == 0, f"Failed to compile {file}"
         return exe
 
     def run_program(self, file: FileINFO, exe: str, timeout : float = None):
@@ -73,16 +74,16 @@ class Oracle:
         while True:
             case = self.input_buffer.get()
             results : dict = self.process_case(case)
-            outputs = results.values()
+            outputs = list(results.values())
             exes = results.keys()
 
             # find diff in outputs
             if len(set(outputs)) != 1:
-                tasks = {}
+                results = dict()
                 for exe in exes:
                     new_exe, output = self.recheck(case, exe)
-                    tasks.update({new_exe: output})
-                outputs = [o for _, o in tasks]
+                    results.update({new_exe: output})
+                outputs = list(results.values())
 
             # diff eliminated in recheck
             if len(set(outputs)) == 1:
@@ -91,7 +92,7 @@ class Oracle:
                 flag = True
             else:
                 print("Programs are not equivalent")
-                for key, value in tasks.items():
+                for key, value in results.items():
                     print(f"File: {key} Output: {value.strip()}")
                 flag =  False
 

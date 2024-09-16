@@ -17,7 +17,7 @@ class CodeMutator:
         self.max_opts = max_opts
         self.input_buffer = input_buffer
         self.output_buffer = output_buffer
-        self.mutate_processes = [Process(target=self.mutate) for _ in range(1)]
+        self.mutate_processes = [Process(target=self.mutate) for _ in range(5)]
 
     @staticmethod
     def get_functions(raw_code : str) -> list[str]:
@@ -27,7 +27,7 @@ class CodeMutator:
         functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
         return functions
 
-    def add_opt(self, case : CaseManager, opt_dict=None) -> list[str, dict[str, list[str]]]:
+    def add_opt(self, case : CaseManager, opt_dict=None) -> tuple[str, dict[str, list[str]]]:
         raw_code = case.orig.get_text()
         functions = self.get_functions(raw_code)
 
