@@ -1,18 +1,24 @@
+import shutil
 import smtplib
-import json
-import time
-from email.mime.text import MIMEText
-from email.header import Header
+from email.message import EmailMessage
 
 
-def send_mail(config: dict, subject: str, content: str):
-    message = MIMEText(content, 'plain', 'utf-8')
-    message['From'] = Header(config["From"])
-    message['To'] = Header(config["To"], 'utf-8')
-    message['Subject'] = Header(subject, 'utf-8')
+def send_mail(config: dict, subject: str, content: str, attachment: str = None):
+    message = EmailMessage()
+    message['From'] = config["From"]
+    message['To'] = config["To"]
+    message['Subject'] = subject
     server = smtplib.SMTP_SSL(config["smtp_server"], config["smtp_port"])
     server.login(config["sender"], config["password"])
-    server.sendmail(config["sender"], config["receiver"], message.as_string())
+    message.set_content(content)
+    if attachment is not None:
+        with open(attachment, 'rb') as f:
+            message.add_attachment(f.read(), maintype='application', subtype='zip', filename=attachment)
+    server.send_message(message, config["sender"], config["receiver"])
     server.quit()
+
+
+def zip_dir(dir_path: str, zip_path: str):
+    shutil.make_archive(zip_path, 'zip', dir_path)
 
 

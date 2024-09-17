@@ -6,7 +6,7 @@ import subprocess
 
 from configs import SIMPLE_OPTS
 from filemanager import *
-from mail import send_mail
+from mail import send_mail, zip_dir
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 with open("config.json", "r") as f:
@@ -87,6 +87,8 @@ class Oracle:
                 flag = True
 
             if not flag:
+                zip_dir(case.case_dir, case.case_dir)
                 send_mail(MAIL_CONFIG, f"A bug is found in {case.case_dir}!",
-                          f"A bug is found in {case.case_dir}!\nPlease check the output files.")
+                          f"A bug is found in {case.case_dir}!\nPlease check the output files.",
+                          attachment=case.case_dir + ".zip")
                 case.save_log()                
