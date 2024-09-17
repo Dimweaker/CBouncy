@@ -33,7 +33,7 @@ class ProgramGenerator:
             orig_program = stdout.decode('utf-8')
 
             # log
-            print(f"--- Generated orig case {self.epoch.value}---")
+            # print(f"--- Generated orig case {self.epoch.value}---")
             # write program to file
             self.epoch.value += 1
             test_dir = os.path.join(self.file_path, f"case_{self.epoch.value}")

@@ -66,7 +66,7 @@ class CodeMutator:
     def mutate(self, num: int = 5):
         while True:
             case = self.input_buffer.get()
-            print(f"--- Mutating case {case.get_casename()} ---")
+            # print(f"--- Mutating case {case.get_casename()} ---")
             
             # main mutate
             for i in range(num):
@@ -75,5 +75,5 @@ class CodeMutator:
                 self.write_to_file(mutant_file, code)
                 case.add_mutant(MutantFileINFO(mutant_file, opt_dict))
             
-            print(f"--- Finished mutating case {case.case_dir} ---")
+            # print(f"--- Finished mutating case {case.case_dir} ---")
             self.output_buffer.push(case)

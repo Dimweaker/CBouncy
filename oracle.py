@@ -39,66 +39,54 @@ class Oracle:
         process.communicate()
         if self.stop_on_fail:
             assert process.returncode == 0, f"Failed to compile {file}"
-        return exe
+        file.exe = exe
 
-    def run_program(self, file: FileINFO, exe: str, timeout : float = None):
+    def run_program(self, file: FileINFO, timeout : float = None):
         if timeout is None:
             timeout = self.timeout
         try:
-            result = subprocess.run(f"./{exe}", stdout=subprocess.PIPE, cwd=file.get_cwd(), timeout=timeout)
+            result = subprocess.run(f"./{file.exe}", stdout=subprocess.PIPE, cwd=file.get_cwd(), timeout=timeout)
             output = result.stdout.decode("utf-8")
 
         except subprocess.TimeoutExpired as e:
             output = "Timeout"
 
         file.res = output
-        return output
 
-    def process_file(self, file: FileINFO):
-        exe = self.compile_program(file)
-        output = self.run_program(file, exe)
-        return exe, output
+    def process_file(self, file: FileINFO, timeout : float = None):
+        self.compile_program(file)
+        self.run_program(file, timeout=timeout)
 
     def process_case(self, case: CaseManager):
-        tasks : dict = {}
-        exe, output = self.process_file(case.orig)
-        tasks.update({exe: output})
+        self.process_file(case.orig)
         for mutant in case.mutants:
-            exe, output = self.process_file(mutant)
-            tasks.update({exe: output})
-        return tasks
+            self.process_file(mutant)
 
-    def recheck(self, case : CaseManager, exe):
-        output = self.run_program(case.case_dir, exe, timeout=30)
-        return exe, output
+    def recheck(self, case : CaseManager):
+        self.run_program(case.orig, timeout=30)
+        for mutant in case.mutants:
+            self.run_program(mutant, timeout=30)
 
     def test_case(self):
         while True:
             case = self.input_buffer.get()
-            results : dict = self.process_case(case)
-            outputs = list(results.values())
-            exes = results.keys()
 
+            self.process_case(case)
+            
             # find diff in outputs
-            if len(set(outputs)) != 1:
-                results = dict()
-                for exe in exes:
-                    new_exe, output = self.recheck(case, exe)
-                    results.update({new_exe: output})
-                outputs = list(results.values())
+            if case.is_diff():
+                self.recheck(case)
 
             # diff eliminated in recheck
-            if len(set(outputs)) == 1:
-                print(f"All programs are equivalent with output: {outputs[0].strip()}")
+            if case.is_diff():
+                print("Programs are not equivalent")
+                flag =  False
+            else:
+                # print(f"All programs are equivalent with output: {outputs[0].strip()}")
                 shutil.rmtree(case.case_dir)
                 flag = True
-            else:
-                print("Programs are not equivalent")
-                for key, value in results.items():
-                    print(f"File: {key} Output: {value.strip()}")
-                flag =  False
 
             if not flag:
                 send_mail(MAIL_CONFIG, f"A bug is found in {case.case_dir}!",
-                          "A bug is found in {case.case_dir}!\nPlease check the output files.")
+                          f"A bug is found in {case.case_dir}!\nPlease check the output files.")
                 case.save_log()                

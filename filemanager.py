@@ -7,6 +7,7 @@ class FileINFO:
         self.filepath = filepath
         self.compile_cmd = ""   # command to run the file
         self.res = None
+        self.exe = None
 
     def set_cmd(self, cmd: str):
         self.compile_cmd = cmd
@@ -28,7 +29,7 @@ class FileINFO:
 
     def __str__(self):
         return \
-f"""{self.filepath}
+f"""{self.get_basename()}
     isMutant: 0
     cmd {self.compile_cmd}
     res {self.res}
@@ -49,7 +50,7 @@ class MutantFileINFO(FileINFO):
     def __str__(self):
         func_opts = "\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.function.items()])
         return \
-f"""{self.filepath}
+f"""{self.get_basename()}
     isMutant: 1
     cmd {self.compile_cmd}
     res {self.res}
@@ -72,6 +73,13 @@ class CaseManager:
 
     def get_casename(self) -> str:
         return os.path.basename(self.case_dir)
+
+    def is_diff(self) -> bool:
+        results = set()
+        results.add(self.orig.res)
+        for mutant in self.mutants:
+            results.add(mutant.res)
+        return len(results) != 1
 
     def save_log(self):
         with open(f"{self.case_dir}/log", 'w') as f:
