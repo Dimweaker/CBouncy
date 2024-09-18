@@ -1,11 +1,12 @@
 import os
-import threading
 from multiprocessing import Queue
+
 
 class FileINFO:
     def __init__(self, filepath):
+        self.compile_cmd = ""
         self.filepath = filepath
-        self.exe : str = None
+        self.exe : str = ""
         self.res = None
 
     def is_mutant(self):

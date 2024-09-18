@@ -94,6 +94,7 @@ class Oracle:
             
             # ! find bugs!
             case.save_log()
+            zip_dir(case.case_dir, case.case_dir)
             send_mail(MAIL_CONFIG, f"A bug is found in {case.case_dir}!",
                       f"A bug is found in {case.case_dir}!\nPlease check the output files.",
                       attachment=case.case_dir + ".zip")

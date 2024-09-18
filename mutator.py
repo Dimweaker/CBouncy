@@ -7,6 +7,8 @@ from filemanager import *
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
+OPT_FORMAT = '__attribute__((optimize("{}")));'
+
 
 class CodeMutator:
     def __init__(self, mutate_num=5, complex_opts: bool = False, max_opts: int = 35,

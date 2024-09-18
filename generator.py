@@ -1,6 +1,3 @@
-import os
-import random
-import asyncio
 from multiprocessing import Process, Value
 import subprocess
 
@@ -9,7 +6,8 @@ from filemanager import *
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class ProgramGenerator:
-    def __init__(self, test_dir: str, generate_num=100, csmith_args: list[str] = [], output_buffer: CaseBuffer = None):
+    def __init__(self, test_dir: str, generate_num=100, csmith_args: list[str] = None,
+                 output_buffer: CaseBuffer = None):
         self.test_dir = test_dir
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir)
@@ -17,7 +15,10 @@ class ProgramGenerator:
         self.generate_num = generate_num
         self.epoch = Value('i', 0)
         self.output_buffer = output_buffer
-        self.csmith_args = csmith_args
+        if csmith_args is None:
+            self.csmith_args = []
+        else:
+            self.csmith_args = csmith_args
 
         self.gen_processes = [Process(target=self.generate_case) for _ in range(15)] # processes for csmith program generating
 
