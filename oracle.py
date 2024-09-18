@@ -13,13 +13,10 @@ with open("config.json", "r") as f:
     MAIL_CONFIG = json.load(f)
 
 class Oracle:
-    def __init__(self, timeout: float = 0.3,
-                 save_output: bool = True, stop_on_fail: bool = False,
-                 input_buffer: CaseBuffer = None):
+    def __init__(self, timeout: float = 20, input_buffer: CaseBuffer = None):
         self.timeout = timeout
-        self.save_output = save_output
-        self.stop_on_fail = stop_on_fail
         self.input_buffer = input_buffer
+
         self.oracle_processes = [Process(target=self.test_case) for _ in range(5)] # 5 processes for testing
 
     def run(self):
@@ -31,17 +28,29 @@ class Oracle:
             process.join()
 
     def compile_program(self, file: FileINFO):
-        exe = f"{file.get_basename().rstrip('.c')}_gcc"
-        opts = "-" + random.choice(SIMPLE_OPTS)
-        cmd = ["gcc", file.get_abspath(), f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts]
+        exe = f"{file.get_basename().rstrip('.c')}_gcc.out"
+
+        # disable opts for orig
+        if file.is_mutant():
+            opts = "-" + random.choice(SIMPLE_OPTS)
+            cmd = ["gcc", file.get_abspath(), f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts]
+        else:
+            cmd = ["gcc", file.get_abspath(), f"-I{CSMITH_HOME}/include", "-o", exe, "-w"]
+            
         file.set_cmd(" ".join(cmd))
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=file.get_cwd())
         process.communicate()
-        if self.stop_on_fail:
-            assert process.returncode == 0, f"Failed to compile {file}"
-        file.exe = exe
+        if process.returncode != 0:
+            # ! compile failed
+            file.res = "Compile failed"
+        else:
+            file.exe = exe
 
     def run_program(self, file: FileINFO, timeout : float = None):
+        # ! reject to run compile failed program
+        if file.res == "Compile failed":
+            return
+            
         if timeout is None:
             timeout = self.timeout
         try:
@@ -62,33 +71,29 @@ class Oracle:
         for mutant in case.mutants:
             self.process_file(mutant)
 
-    def recheck(self, case : CaseManager):
-        self.run_program(case.orig, timeout=30)
+    def recheck_case(self, case : CaseManager):
+        self.run_program(case.orig, timeout=60)
         for mutant in case.mutants:
-            self.run_program(mutant, timeout=30)
+            self.run_program(mutant, timeout=60)
 
     def test_case(self):
         while True:
             case = self.input_buffer.get()
+            print("--- Testing case ---")
 
             self.process_case(case)
             
             # find diff in outputs
             if case.is_diff():
-                self.recheck(case)
+                self.recheck_case(case)
 
             # diff eliminated in recheck
-            if case.is_diff():
-                print("Programs are not equivalent")
-                flag =  False
-            else:
-                # print(f"All programs are equivalent with output: {outputs[0].strip()}")
+            if not case.is_diff():
                 shutil.rmtree(case.case_dir)
-                flag = True
-
-            if not flag:
-                zip_dir(case.case_dir, case.case_dir)
-                send_mail(MAIL_CONFIG, f"A bug is found in {case.case_dir}!",
-                          f"A bug is found in {case.case_dir}!\nPlease check the output files.",
-                          attachment=case.case_dir + ".zip")
-                case.save_log()                
+                continue
+            
+            # ! find bugs!
+            case.save_log()
+            send_mail(MAIL_CONFIG, f"A bug is found in {case.case_dir}!",
+                      f"A bug is found in {case.case_dir}!\nPlease check the output files.",
+                      attachment=case.case_dir + ".zip")

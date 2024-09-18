@@ -2,7 +2,7 @@ SIMPLE_OPTS = (
     "O0", "O1", "O2", "O3", "Os", "Ofast", "Og"
 )
 
-COMPLEX_OPTS = tuple(
+COMPLEX_OPTS_GCC = tuple(
 """
 -fauto-inc-dec
 -fbranch-count-reg

@@ -2,19 +2,21 @@ import random
 import re
 from multiprocessing import Process
 
-from configs import SIMPLE_OPTS, COMPLEX_OPTS
+from configs import SIMPLE_OPTS, COMPLEX_OPTS_GCC
 from filemanager import *
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
-OPT_FORMAT = '__attribute__((optimize("{}")));'
-CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 class CodeMutator:
-    def __init__(self, complex_opts: bool = False, max_opts: int = 35,
+    def __init__(self, mutate_num=5, complex_opts: bool = False, max_opts: int = 35,
+                 gen_gcc: bool = True, gen_clang: bool = False,
                  input_buffer : CaseBuffer = None, output_buffer : CaseBuffer = None):
+        self.mutate_num = mutate_num
         self.complex_opts = complex_opts
         self.max_opts = max_opts
+        self.gen_gcc = gen_gcc
+        self.gen_clang = gen_clang
         self.input_buffer = input_buffer
         self.output_buffer = output_buffer
         self.mutate_processes = [Process(target=self.mutate) for _ in range(2)]
@@ -36,7 +38,7 @@ class CodeMutator:
             funcs = [re.search(rf"(\S*)\(.*\);", func).group() for func in functions]
             if self.complex_opts:
                 opts_n = random.randint(1, self.max_opts)
-                opt_dict = {func: random.sample(COMPLEX_OPTS, opts_n) for func in funcs}
+                opt_dict = {func: random.sample(COMPLEX_OPTS_GCC, opts_n) for func in funcs}
             else:
                 opt_dict = {func: [random.choice(SIMPLE_OPTS)] for func in funcs}
 
@@ -64,6 +66,7 @@ class CodeMutator:
             process.join()
 
     def mutate(self, num: int = 5):
+        # TODO: gen variants for gcc and clang
         while True:
             case = self.input_buffer.get()
             # print(f"--- Mutating case {case.get_casename()} ---")

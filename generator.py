@@ -9,34 +9,30 @@ from filemanager import *
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 class ProgramGenerator:
-    def __init__(self, file_path: str, my_args: list[str] = None, output_buffer: CaseBuffer = None):
-        self.file_path = file_path
-        if not os.path.exists(self.file_path):
-            os.makedirs(self.file_path)
-            
+    def __init__(self, test_dir: str, generate_num=100, csmith_args: list[str] = [], output_buffer: CaseBuffer = None):
+        self.test_dir = test_dir
+        if not os.path.exists(self.test_dir):
+            os.makedirs(self.test_dir)
+        
+        self.generate_num = generate_num
         self.epoch = Value('i', 0)
         self.output_buffer = output_buffer
-        
-        if my_args is not None:
-            self.my_args = my_args
-        else:
-            self.my_args = []
+        self.csmith_args = csmith_args
 
         self.gen_processes = [Process(target=self.generate_case) for _ in range(15)] # processes for csmith program generating
 
     def generate_case(self):
         while True:
             # generate a csmith program
-            stdout = subprocess.run([f"{CSMITH_HOME}/bin/csmith", *self.my_args], 
+            stdout = subprocess.run([f"{CSMITH_HOME}/bin/csmith", *self.csmith_args], 
                                     stdout=subprocess.PIPE).stdout
 
             orig_program = stdout.decode('utf-8')
 
-            # log
-            # print(f"--- Generated orig case {self.epoch.value}---")
             # write program to file
-            self.epoch.value += 1
-            test_dir = os.path.join(self.file_path, f"case_{self.epoch.value}")
+            with self.epoch.get_lock():
+                self.epoch.value += 1
+                test_dir = os.path.join(self.test_dir, f"case_{self.epoch.value}")
 
             if not os.path.exists(test_dir):
                 os.makedirs(test_dir)

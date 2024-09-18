@@ -5,9 +5,11 @@ from multiprocessing import Queue
 class FileINFO:
     def __init__(self, filepath):
         self.filepath = filepath
-        self.compile_cmd = ""   # command to run the file
+        self.exe : str = None
         self.res = None
-        self.exe = None
+
+    def is_mutant(self):
+        return False
 
     def set_cmd(self, cmd: str):
         self.compile_cmd = cmd
@@ -43,6 +45,9 @@ class MutantFileINFO(FileINFO):
             self.function = function
         else:
             self.function : dict[str: list[str]] = dict()
+
+    def is_mutant(self):
+        return True
 
     def add_func_opts(self, function : str, opts : list[str]):
         self.function[function] = opts
