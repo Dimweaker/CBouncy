@@ -4,11 +4,11 @@ import shutil
 from multiprocessing import Process
 import subprocess
 
-from configs import SIMPLE_OPTS
+from configs import SIMPLE_OPTS, CSMITH_HOME
 from filemanager import *
 from mail import send_mail, zip_dir
 
-CSMITH_HOME = os.environ["CSMITH_HOME"]
+
 with open("config.json", "r") as f:
     MAIL_CONFIG = json.load(f)
 
@@ -27,7 +27,8 @@ class Oracle:
         for process in self.oracle_processes:
             process.join()
 
-    def compile_program(self, file: FileINFO):
+    @staticmethod
+    def compile_program(file: FileINFO):
         exe = f"{file.get_basename().rstrip('.c')}_gcc.out"
 
         # disable opts for orig

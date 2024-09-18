@@ -2,12 +2,8 @@ import random
 import re
 from multiprocessing import Process
 
-from configs import SIMPLE_OPTS, COMPLEX_OPTS_GCC
+from configs import SIMPLE_OPTS, COMPLEX_OPTS_GCC, PREFIX_TEXT, SUFFIX_TEXT, OPT_FORMAT
 from filemanager import *
-
-PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
-SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
-OPT_FORMAT = '__attribute__((optimize("{}")));'
 
 
 class CodeMutator:
