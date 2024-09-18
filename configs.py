@@ -1,3 +1,8 @@
+import os
+
+
+CSMITH_HOME = os.environ["CSMITH_HOME"]
+
 SIMPLE_OPTS = (
     "O0", "O1", "O2", "O3", "Os", "Ofast", "Og"
 )
@@ -104,3 +109,7 @@ COMPLEX_OPTS_GCC = tuple(
 -fversion-loops-for-strides
 """.strip().split("\n")
 )
+
+PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
+SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
+OPT_FORMAT = '__attribute__((optimize("{}")));'

@@ -65,6 +65,16 @@ f"""{self.get_basename()}
 %%
 """
 
+class ReducePatchFileINFO(MutantFileINFO):
+    def __init__(self, mutant: MutantFileINFO, function : dict[str: list[str]] = None):
+        self.mutant = mutant
+        reduced_patch_file = mutant.get_abspath().replace(".c", f"_p.c")
+        if function is not None:
+            super().__init__(reduced_patch_file, function)
+        else:
+            super().__init__(reduced_patch_file, mutant.function.copy())
+
+
 class CaseManager:
     def __init__(self, orig : FileINFO = None):
         self.case_dir = orig.get_cwd()
