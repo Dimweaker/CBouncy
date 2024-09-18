@@ -39,6 +39,8 @@ class Reducer:
                     self.process_file(reduced_patch_mutant)
                     if reduced_patch_mutant.res != mutant.res:
                         reduced_patch_mutant.function[func].append(opt)
+                    else:
+                        print(f"Reduced {opt} from {func} in {reduced_patch_mutant.get_basename()}")
 
             code = self.add_opt(reduced_patch_mutant.function)
             self.write_to_file(reduced_patch_mutant.filepath, code)
