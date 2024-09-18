@@ -1,6 +1,6 @@
 import os
 from multiprocessing import Queue
-
+from shutil import copyfile
 
 class FileINFO:
     def __init__(self, filepath):
@@ -52,6 +52,9 @@ class MutantFileINFO(FileINFO):
 
     def add_func_opts(self, function : str, opts : list[str]):
         self.function[function] = opts
+
+    def copy2dir(self, new_dir : str):
+        copyfile(self.filepath, f"{new_dir}/{os.path.basename(self.filepath)}")
     
     def __str__(self):
         func_opts = "\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.function.items()])
@@ -93,6 +96,11 @@ class CaseManager:
             for mutant in self.mutants:
                 f.write(str(mutant))
             f.close()
+
+    def copyfiles(self, new_dir : str):
+        self.orig.copy2dir(new_dir)
+        for mutant in self.mutants:
+            mutant.copy2dir(new_dir)
 
 class CaseBuffer:
     def __init__(self, size):
