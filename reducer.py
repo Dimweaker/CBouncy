@@ -31,18 +31,18 @@ class Reducer:
         # reduce a single patch
         for mutant in self.case.mutants:
             reduced_patch_mutant = ReducePatchFileINFO(mutant)
-            for func, opts in mutant.function.items():
+            for func, opts in mutant.functions.items():
                 for opt in opts:
-                    reduced_patch_mutant.function[func].remove(opt)
-                    code = self.add_opt(reduced_patch_mutant.function)
+                    reduced_patch_mutant.functions[func].remove(opt)
+                    code = self.add_opt(reduced_patch_mutant.functions)
                     self.write_to_file(reduced_patch_mutant.filepath, code)
                     self.process_file(reduced_patch_mutant)
                     if reduced_patch_mutant.res != mutant.res:
-                        reduced_patch_mutant.function[func].append(opt)
+                        reduced_patch_mutant.functions[func].append(opt)
                     else:
                         print(f"Reduced {opt} from {func} in {reduced_patch_mutant.get_basename()}")
 
-            code = self.add_opt(reduced_patch_mutant.function)
+            code = self.add_opt(reduced_patch_mutant.functions)
             self.write_to_file(reduced_patch_mutant.filepath, code)
             self.process_file(reduced_patch_mutant)
 

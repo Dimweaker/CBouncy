@@ -1,4 +1,5 @@
 import os
+import json
 from multiprocessing import Queue
 from shutil import copyfile
 
@@ -28,7 +29,19 @@ class FileINFO:
         with open(self.filepath, 'r') as f:
             text = f.read()
             f.close()
-        return text 
+        return text
+
+    def copy2dir(self, new_dir : str):
+        copyfile(self.filepath, f"{new_dir}/{os.path.basename(self.filepath)}")
+
+    @property
+    def fileinfo(self) -> dict:
+        return {
+            "basename": self.get_basename(),
+            "isMutant": self.is_mutant(),
+            "cmd": self.compile_cmd,
+            "res": self.res
+        }
 
     def __str__(self):
         return \
@@ -43,21 +56,29 @@ class MutantFileINFO(FileINFO):
         super().__init__(path)
         self.compile_cmd = ""
         if function is not None:
-            self.function = function
+            self.functions = function
         else:
-            self.function : dict[str: list[str]] = dict()
+            self.functions : dict[str: list[str]] = dict()
 
     def is_mutant(self):
         return True
 
     def add_func_opts(self, function : str, opts : list[str]):
-        self.function[function] = opts
+        self.functions[function] = opts
 
-    def copy2dir(self, new_dir : str):
-        copyfile(self.filepath, f"{new_dir}/{os.path.basename(self.filepath)}")
-    
+    @property
+    def fileinfo(self) -> dict:
+        return {
+            "basename": self.get_basename(),
+            "isMutant": self.is_mutant(),
+            "cmd": self.compile_cmd,
+            "res": self.res,
+            "functions": self.functions
+        }
+
+
     def __str__(self):
-        func_opts = "\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.function.items()])
+        func_opts = "\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.functions.items()])
         return \
 f"""{self.get_basename()}
     isMutant: 1
@@ -75,7 +96,7 @@ class ReducePatchFileINFO(MutantFileINFO):
         if function is not None:
             super().__init__(reduced_patch_file, function)
         else:
-            super().__init__(reduced_patch_file, mutant.function.copy())
+            super().__init__(reduced_patch_file, mutant.functions.copy())
 
 
 class CaseManager:
@@ -84,7 +105,7 @@ class CaseManager:
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
 
-    def set_orig(self, orig: FileINFO):
+    def reset_orig(self, orig: FileINFO):
         self.orig = orig
         
     def add_mutant(self, mutant: MutantFileINFO):
@@ -101,19 +122,24 @@ class CaseManager:
         return len(results) != 1
 
     def save_log(self):
-        with open(f"{self.case_dir}/log", 'w') as f:
-            f.write(str(self.orig))
-            for mutant in self.mutants:
-                f.write(str(mutant))
-            f.close()
+        json.dump(self.log, open(f"{self.case_dir}/log.json", "w"))
 
     def copyfiles(self, new_dir : str):
         self.orig.copy2dir(new_dir)
         for mutant in self.mutants:
             mutant.copy2dir(new_dir)
 
+    @property
+    def log(self) -> dict:
+        return {
+            "case_dir": self.case_dir,
+            "orig": self.orig.fileinfo,
+            "mutants": [mutant.fileinfo for mutant in self.mutants]
+        }
+
+
 class CaseBuffer:
-    def __init__(self, size):
+    def __init__(self, size: int):
         self.queue = Queue(size)
         
     def push(self, case: CaseManager):
@@ -122,4 +148,23 @@ class CaseBuffer:
     def get(self) -> CaseManager:
         case = self.queue.get(True)
         return case    
-        
+
+
+def create_case_from_log(log: dict | str) -> CaseManager:
+    if isinstance(log, str):
+        log = json.load(open(log, "r"))
+
+    orig = FileINFO(log["case_dir"] + log["orig"]["basename"])
+    orig.compile_cmd = log["orig"]["cmd"]
+    orig.res = log["orig"]["res"]
+
+    case = CaseManager(orig)
+
+    for mutant_info in log["mutants"]:
+        mutant = MutantFileINFO(log["case_dir"] + mutant_info["basename"],
+                                mutant_info["functions"])
+        mutant.compile_cmd = mutant_info["cmd"]
+        mutant.res = mutant_info["res"]
+        case.add_mutant(mutant)
+
+    return case
