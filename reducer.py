@@ -5,7 +5,7 @@ from shutil import copyfile
 from tempfile import mkdtemp
 import os
 
-from filemanager import CaseManager, FileINFO, ReducePatchFileINFO, CaseBuffer
+from filemanager import CaseManager, FileINFO, ReducedPatchFileINFO, CaseBuffer
 from configs import PREFIX_TEXT, SUFFIX_TEXT, OPT_FORMAT, SIMPLE_OPTS, CSMITH_HOME
 
 class Reducer:
@@ -23,14 +23,15 @@ class Reducer:
             case.copyfiles(reduce_dir)
             # 2. generate a case log
             case.save_log()
-            copyfile(f"{case.case_dir}/log", f"{reduce_dir}/log")
+            copyfile(f"{case.case_dir}/log.json", f"{reduce_dir}/log.json")
             # 3. reduce case depending on orig.c
             self.reduce_case(reduce_dir)
             
-    def reduce_patch(self, case):
+    def reduce_patch(self, case: CaseManager):
         # reduce a single patch
-        for mutant in self.case.mutants:
-            reduced_patch_mutant = ReducePatchFileINFO(mutant)
+        for mutant in case.mutants:
+            reduced_patch_mutant = ReducedPatchFileINFO(mutant)
+            case.add_reduced_patch_mutant(reduced_patch_mutant)
             for func, opts in mutant.functions.items():
                 for opt in opts:
                     reduced_patch_mutant.functions[func].remove(opt)

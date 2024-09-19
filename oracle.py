@@ -54,12 +54,13 @@ class Oracle:
             
         if timeout is None:
             timeout = self.timeout
+
         try:
             result = subprocess.run(f"./{file.exe}", stdout=subprocess.PIPE,
                                     cwd=file.get_cwd(), timeout=timeout)
             output = result.stdout.decode("utf-8")
 
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             output = "Timeout"
 
         file.res = output

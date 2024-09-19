@@ -89,7 +89,7 @@ f"""{self.get_basename()}
 %%
 """
 
-class ReducePatchFileINFO(MutantFileINFO):
+class ReducedPatchFileINFO(MutantFileINFO):
     def __init__(self, mutant: MutantFileINFO, function : dict[str: list[str]] = None):
         self.mutant = mutant
         reduced_patch_file = mutant.get_abspath().replace(".c", f"_p.c")
@@ -104,12 +104,16 @@ class CaseManager:
         self.case_dir = orig.get_cwd()
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
+        self.reduced_patch_mutants : list[ReducedPatchFileINFO] = []
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
         
     def add_mutant(self, mutant: MutantFileINFO):
         self.mutants.append(mutant)
+
+    def add_reduced_patch_mutant(self, mutant: ReducedPatchFileINFO):
+        self.reduced_patch_mutants.append(mutant)
 
     def get_casename(self) -> str:
         return os.path.basename(self.case_dir)
@@ -134,7 +138,8 @@ class CaseManager:
         return {
             "case_dir": self.case_dir,
             "orig": self.orig.fileinfo,
-            "mutants": [mutant.fileinfo for mutant in self.mutants]
+            "mutants": [mutant.fileinfo for mutant in self.mutants],
+            "reduced_patch_mutants": [mutant.fileinfo for mutant in self.reduced_patch_mutants]
         }
 
 
@@ -166,5 +171,12 @@ def create_case_from_log(log: dict | str) -> CaseManager:
         mutant.compile_cmd = mutant_info["cmd"]
         mutant.res = mutant_info["res"]
         case.add_mutant(mutant)
+
+    for mutant_info in log["reduced_patch_mutants"]:
+        mutant = ReducedPatchFileINFO(log["case_dir"] + mutant_info["basename"],
+                                      mutant_info["functions"])
+        mutant.compile_cmd = mutant_info["cmd"]
+        mutant.res = mutant_info["res"]
+        case.add_reduced_patch_mutant(mutant)
 
     return case
