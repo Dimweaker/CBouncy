@@ -35,15 +35,15 @@ class Reducer:
                 for opt in opts:
                     reduced_patch_mutant.functions[func].remove(opt)
                     code = self.add_opt(reduced_patch_mutant.functions)
-                    self.write_to_file(reduced_patch_mutant.filepath, code)
-                    self.process_file(reduced_patch_mutant)
+                    reduced_patch_mutant.write_to_file(code)
+                    reduced_patch_mutant.process_file(timeout=1)
                     if reduced_patch_mutant.res != mutant.res:
                         reduced_patch_mutant.functions[func].append(opt)
                     else:
                         print(f"Reduced {opt} from {func} in {reduced_patch_mutant.basename}")
 
             code = self.add_opt(reduced_patch_mutant.functions)
-            self.write_to_file(reduced_patch_mutant.filepath, code)
+            reduced_patch_mutant.write_to_file(code)
             self.process_file(reduced_patch_mutant)
 
 

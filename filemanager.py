@@ -12,6 +12,7 @@ class FileINFO:
     def __init__(self, filepath: str, compiler: str = "gcc",
                  global_opts: str = "", args: list[str] = None):
         """
+
         :param filepath: 要求为一个绝对路径
         :param compiler:
         :param global_opts:
@@ -77,6 +78,10 @@ class FileINFO:
             "args": self.args,
             "res": self.res
         }
+
+    def write_to_file(self, code: str):
+        with open(self.filepath, "w") as f:
+            f.write(code)
 
     def compile_program(self):
         process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, cwd=self.cwd)
@@ -155,9 +160,6 @@ class CaseManager:
 
     def add_reduced_patch_mutant(self, mutant: ReducedPatchFileINFO):
         self.reduced_patch_mutants.append(mutant)
-
-    def get_casename(self) -> str:
-        return os.path.basename(self.case_dir)
 
     def is_diff(self) -> bool:
         results = set()
