@@ -4,6 +4,7 @@ import copy
 import subprocess
 from multiprocessing import Queue
 from shutil import copyfile
+from typing import Type
 
 from configs import CSMITH_HOME
 
@@ -71,7 +72,9 @@ class FileINFO:
         return {
             "basename": self.basename,
             "isMutant": self.is_mutant(),
-            "cmd": self.cmd,
+            "compiler": self.compiler,
+            "global_opts": self.global_opts,
+            "args": self.args,
             "res": self.res
         }
 
@@ -101,10 +104,12 @@ class FileINFO:
 
 
 class MutantFileINFO(FileINFO):
-    def __init__(self, path: str, function : dict[str: list[str]] = None):
-        super().__init__(path)
-        if function is not None:
-            self.functions = function
+    def __init__(self, filepath: str, compiler: str = "gcc",
+                 global_opts: str = "", args: list[str] = None,
+                 functions : dict[str: list[str]] = None):
+        super().__init__(filepath, compiler, global_opts, args)
+        if functions is not None:
+            self.functions = functions.copy()
         else:
             self.functions : dict[str: list[str]] = dict()
 
@@ -116,23 +121,23 @@ class MutantFileINFO(FileINFO):
 
     @property
     def fileinfo(self) -> dict:
-        return {
-            "basename": self.basename,
-            "isMutant": self.is_mutant(),
-            "cmd": self.cmd,
-            "res": self.res,
-            "functions": self.functions
-        }
+        fileinfo_dict = super().fileinfo
+        fileinfo_dict["functions"] = self.functions
+        return fileinfo_dict
 
 
 class ReducedPatchFileINFO(MutantFileINFO):
-    def __init__(self, mutant: MutantFileINFO, function : dict[str: list[str]] = None):
-        self.mutant = mutant
-        reduced_patch_file = mutant.abspath.replace(".c", f"_p.c")
-        if function is not None:
-            super().__init__(reduced_patch_file, function)
+    def __init__(self, filepath: str = "", compiler: str = "gcc",
+                 global_opts: str = "", args: list[str] = None,
+                 functions : dict[str: list[str]] = None,
+                 mutant: MutantFileINFO = None):
+        if mutant is None:
+            super().__init__(filepath, compiler, global_opts, args, functions)
         else:
-            super().__init__(reduced_patch_file, mutant.functions.copy())
+            reduced_patch_file = mutant.abspath.replace(".c", f"_p.c")
+            super().__init__(reduced_patch_file, mutant.compiler,
+                             mutant.global_opts, mutant.args,
+                             mutant.functions.copy())
 
 
 class CaseManager:
@@ -210,24 +215,30 @@ def create_case_from_log(log: dict | str) -> CaseManager:
     if isinstance(log, str):
         log = json.load(open(log, "r"))
 
-    orig = FileINFO(log["case_dir"] + log["orig"]["basename"])
-    orig.compile_cmd = log["orig"]["cmd"]
-    orig.res = log["orig"]["res"]
+    orig = create_fileinfo_from_dict(log["case_dir"], log["orig"], FileINFO)
 
     case = CaseManager(orig)
 
     for mutant_info in log["mutants"]:
-        mutant = MutantFileINFO(log["case_dir"] + mutant_info["basename"],
-                                mutant_info["functions"])
-        mutant.compile_cmd = mutant_info["cmd"]
-        mutant.res = mutant_info["res"]
+        mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info, MutantFileINFO)
         case.add_mutant(mutant)
 
     for mutant_info in log["reduced_patch_mutants"]:
-        mutant = ReducedPatchFileINFO(log["case_dir"] + mutant_info["basename"],
-                                      mutant_info["functions"])
-        mutant.compile_cmd = mutant_info["cmd"]
-        mutant.res = mutant_info["res"]
+        mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info, ReducedPatchFileINFO)
         case.add_reduced_patch_mutant(mutant)
 
     return case
+
+def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
+                                       file_class: Type[FileINFO, MutantFileINFO, ReducedPatchFileINFO]) \
+                                                -> Type[FileINFO, MutantFileINFO, ReducedPatchFileINFO]:
+    if file_class == FileINFO:
+        fileinfo = file_class(case_dir + fileinfo_dict["basename"], fileinfo_dict["compiler"],
+                              fileinfo_dict["global_opts"], fileinfo_dict["args"])
+        fileinfo.res = fileinfo_dict["res"]
+    else:
+        fileinfo = file_class(case_dir + fileinfo_dict["basename"], fileinfo_dict["compiler"],
+                              fileinfo_dict["global_opts"], fileinfo_dict["args"], fileinfo_dict["functions"])
+        fileinfo.res = fileinfo_dict["res"]
+    return fileinfo
+

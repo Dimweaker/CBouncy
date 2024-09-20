@@ -29,7 +29,7 @@ class Reducer:
     def reduce_patch(self, case: CaseManager):
         # reduce a single patch
         for mutant in case.mutants:
-            reduced_patch_mutant = ReducedPatchFileINFO(mutant)
+            reduced_patch_mutant = ReducedPatchFileINFO(mutant=mutant)
             case.add_reduced_patch_mutant(reduced_patch_mutant)
             for func, opts in mutant.functions.items():
                 for opt in opts:
