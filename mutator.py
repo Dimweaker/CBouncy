@@ -28,7 +28,7 @@ class CodeMutator:
         return functions
 
     def add_opt(self, case : CaseManager, opt_dict=None) -> tuple[str, dict[str, list[str]]]:
-        raw_code = case.orig.get_text()
+        raw_code = case.orig.text
         functions = self.get_functions(raw_code)
 
         # TODO: store selected opts

@@ -20,11 +20,10 @@ class Reducer:
             self.reduce_patch(case)
             # ! case reduction take place in sub tmpdir
             reduce_dir = mkdtemp(dir=case.case_dir)
-            case.copyfiles(reduce_dir)
-            # 2. generate a case log
+
             case.save_log()
-            copyfile(f"{case.case_dir}/log.json", f"{reduce_dir}/log.json")
-            # 3. reduce case depending on orig.c
+            case.copyfiles(reduce_dir)
+
             self.reduce_case(reduce_dir)
             
     def reduce_patch(self, case: CaseManager):
@@ -41,7 +40,7 @@ class Reducer:
                     if reduced_patch_mutant.res != mutant.res:
                         reduced_patch_mutant.functions[func].append(opt)
                     else:
-                        print(f"Reduced {opt} from {func} in {reduced_patch_mutant.get_basename()}")
+                        print(f"Reduced {opt} from {func} in {reduced_patch_mutant.basename}")
 
             code = self.add_opt(reduced_patch_mutant.functions)
             self.write_to_file(reduced_patch_mutant.filepath, code)
@@ -81,23 +80,11 @@ class Reducer:
 
     @staticmethod
     def compile_program(file: FileINFO):
-        exe = f"{file.get_basename().rstrip('.c')}_gcc.out"
-
-        # disable opts for orig
-        if file.is_mutant():
-            opts = "-" + random.choice(SIMPLE_OPTS)
-            cmd = ["gcc", file.get_abspath(), f"-I{CSMITH_HOME}/include", "-o", exe, "-w", opts]
-        else:
-            cmd = ["gcc", file.get_abspath(), f"-I{CSMITH_HOME}/include", "-o", exe, "-w"]
-
-        file.set_cmd(" ".join(cmd))
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=file.get_cwd())
+        process = subprocess.Popen(file.cmd, stdout=subprocess.PIPE, cwd=file.cwd)
         process.communicate()
         if process.returncode != 0:
             # ! compile failed
             file.res = "Compile failed"
-        else:
-            file.exe = exe
 
     def run_program(self, file: FileINFO, timeout: float = None):
         # ! reject to run compile failed program
@@ -107,7 +94,7 @@ class Reducer:
         if timeout is None:
             timeout = self.timeout
         try:
-            result = subprocess.run(f"./{file.exe}", stdout=subprocess.PIPE, cwd=file.get_cwd(), timeout=timeout)
+            result = subprocess.run(f"./{file.exe}", stdout=subprocess.PIPE, cwd=file.cwd, timeout=timeout)
             output = result.stdout.decode("utf-8")
 
         except subprocess.TimeoutExpired:

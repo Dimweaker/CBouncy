@@ -1,60 +1,108 @@
 import os
 import json
+import copy
+import subprocess
 from multiprocessing import Queue
 from shutil import copyfile
 
+from configs import CSMITH_HOME
+
 class FileINFO:
-    def __init__(self, filepath):
-        self.compile_cmd = ""
+    def __init__(self, filepath: str, compiler: str = "gcc",
+                 global_opts: str = "", args: list[str] = None):
+        """
+        :param filepath: 要求为一个绝对路径
+        :param compiler:
+        :param global_opts:
+        :param args: 其他参数
+        """
+        self.compiler = compiler
+        self.global_opts = global_opts
+        if args is not None:
+            self.args = args
+        else:
+            self.args : list[str] = []
         self.filepath = filepath
-        self.exe : str = ""
         self.res = None
 
     def is_mutant(self):
         return False
 
-    def set_cmd(self, cmd: str):
-        self.compile_cmd = cmd
+    @property
+    def cmd(self) -> str:
+        return f"{self.compiler} {self.abspath} -I{CSMITH_HOME}/include -o {self.exe} -w {self.global_opts} {' '.join(self.args)}"
 
-    def get_cwd(self) -> str:
-        return os.path.dirname(self.filepath)
+    @property
+    def exe(self) -> str:
+        return f"{self.basename.rstrip('.c')}_gcc.out"
 
-    def get_basename(self) -> str:
+    @property
+    def basename(self) -> str:
         return os.path.basename(self.filepath)
 
-    def get_abspath(self) -> str:
+    @property
+    def cwd(self) -> str:
+        return os.path.dirname(self.filepath)
+
+    @property
+    def abspath(self) -> str:
         return self.filepath
 
-    def get_text(self) -> str:
+    @abspath.setter
+    def abspath(self, path: str):
+        self.filepath = path
+
+    @property
+    def text(self) -> str:
         with open(self.filepath, 'r') as f:
             text = f.read()
             f.close()
         return text
 
     def copy2dir(self, new_dir : str):
-        copyfile(self.filepath, f"{new_dir}/{os.path.basename(self.filepath)}")
+        copyfile(self.filepath, f"{new_dir}/{self.basename}")
+        copied_file = copy.deepcopy(self)
+        copied_file.abspath = f"{new_dir}/{self.basename}"
+        return copied_file
+
 
     @property
     def fileinfo(self) -> dict:
         return {
-            "basename": self.get_basename(),
+            "basename": self.basename,
             "isMutant": self.is_mutant(),
-            "cmd": self.compile_cmd,
+            "cmd": self.cmd,
             "res": self.res
         }
 
-    def __str__(self):
-        return \
-f"""{self.get_basename()}
-    isMutant: 0
-    cmd {self.compile_cmd}
-    res {self.res}
-"""
+    def compile_program(self):
+        process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, cwd=self.cwd)
+        process.communicate()
+        if process.returncode != 0:
+            self.res = "Compile failed"
+
+    def run_program(self, timeout: float = 1):
+        if self.res == "Compile failed":
+            return
+
+        try:
+            result = subprocess.run(f"./{self.exe}", stdout=subprocess.PIPE,
+                                    cwd=self.cwd, timeout=timeout)
+            output = result.stdout.decode("utf-8")
+
+        except subprocess.TimeoutExpired:
+            output = "Timeout"
+
+        self.res = output
+
+    def process_file(self, timeout: float = 1):
+        self.compile_program()
+        self.run_program(timeout=timeout)
+
 
 class MutantFileINFO(FileINFO):
     def __init__(self, path: str, function : dict[str: list[str]] = None):
         super().__init__(path)
-        self.compile_cmd = ""
         if function is not None:
             self.functions = function
         else:
@@ -69,30 +117,18 @@ class MutantFileINFO(FileINFO):
     @property
     def fileinfo(self) -> dict:
         return {
-            "basename": self.get_basename(),
+            "basename": self.basename,
             "isMutant": self.is_mutant(),
-            "cmd": self.compile_cmd,
+            "cmd": self.cmd,
             "res": self.res,
             "functions": self.functions
         }
 
 
-    def __str__(self):
-        func_opts = "\n    ".join([f"{k}\n\t{' '.join(v)}" for k, v in self.functions.items()])
-        return \
-f"""{self.get_basename()}
-    isMutant: 1
-    cmd {self.compile_cmd}
-    res {self.res}
-%%
-    {func_opts}
-%%
-"""
-
 class ReducedPatchFileINFO(MutantFileINFO):
     def __init__(self, mutant: MutantFileINFO, function : dict[str: list[str]] = None):
         self.mutant = mutant
-        reduced_patch_file = mutant.get_abspath().replace(".c", f"_p.c")
+        reduced_patch_file = mutant.abspath.replace(".c", f"_p.c")
         if function is not None:
             super().__init__(reduced_patch_file, function)
         else:
@@ -101,7 +137,7 @@ class ReducedPatchFileINFO(MutantFileINFO):
 
 class CaseManager:
     def __init__(self, orig : FileINFO = None):
-        self.case_dir = orig.get_cwd()
+        self.case_dir: str = orig.cwd
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
         self.reduced_patch_mutants : list[ReducedPatchFileINFO] = []
@@ -125,13 +161,28 @@ class CaseManager:
             results.add(mutant.res)
         return len(results) != 1
 
+    def process(self, timeout: float = 1):
+        self.orig.process_file(timeout=timeout)
+        for mutant in self.mutants:
+            mutant.process_file(timeout=timeout)
+
+    def recheck(self):
+        self.orig.run_program(timeout=60)
+        for mutant in self.mutants:
+            mutant.run_program(timeout=60)
+
     def save_log(self):
         json.dump(self.log, open(f"{self.case_dir}/log.json", "w"))
 
     def copyfiles(self, new_dir : str):
-        self.orig.copy2dir(new_dir)
+        copied_orig = self.orig.copy2dir(new_dir)
+        new_case = CaseManager(copied_orig)
         for mutant in self.mutants:
-            mutant.copy2dir(new_dir)
+            new_case.add_mutant(mutant.copy2dir(new_dir))
+        for mutant in self.reduced_patch_mutants:
+            new_case.add_reduced_patch_mutant(mutant.copy2dir(new_dir))
+
+        return new_case
 
     @property
     def log(self) -> dict:

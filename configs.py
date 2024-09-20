@@ -1,5 +1,8 @@
 import os
+import json
 
+with open("config.json", "r") as f:
+    MAIL_CONFIG = json.load(f)
 
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
