@@ -1,12 +1,15 @@
 import os
 import json
 import copy
+import random
+import re
 import subprocess
 from multiprocessing import Queue
 from shutil import copyfile
 from typing import Type
 
-from configs import CSMITH_HOME
+from configs import CSMITH_HOME, COMPLEX_OPTS_GCC, SIMPLE_OPTS, OPT_FORMAT, PREFIX_TEXT, SUFFIX_TEXT
+
 
 class FileINFO:
     def __init__(self, filepath: str, compiler: str = "gcc",
@@ -96,16 +99,44 @@ class FileINFO:
         try:
             result = subprocess.run(f"./{self.exe}", stdout=subprocess.PIPE,
                                     cwd=self.cwd, timeout=timeout)
-            output = result.stdout.decode("utf-8")
-
+            self.res = result.stdout.decode("utf-8")
         except subprocess.TimeoutExpired:
-            output = "Timeout"
-
-        self.res = output
+            self.res = "Timeout"
 
     def process_file(self, timeout: float = 1):
         self.compile_program()
         self.run_program(timeout=timeout)
+
+    def add_opt(self, complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
+        raw_code = self.text
+        declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", raw_code, re.S)
+        declaration_scope = declaration_scope.group() if declaration_scope else ""
+        functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
+
+        if opt_dict is None:
+            funcs = [re.search(rf"(\S*)\(.*\).*?;", func).group(1) for func in functions]
+            if complex_opts:
+                opt_dict = {
+                    func:
+                        random.sample(COMPLEX_OPTS_GCC, random.randint(1, max_opts))
+                    for func in funcs
+                }
+            else:
+                opt_dict = {func: [random.choice(SIMPLE_OPTS)] for func in funcs}
+        code = raw_code
+        for key, value in opt_dict.items():
+            opt_str = ",".join(value) if complex_opts else value[0]
+            code = re.sub(rf"({key}\(.*?\)).*?;",
+                          lambda r: f"{r.group(1)} {OPT_FORMAT.format(opt_str)};", code)
+
+        return code, opt_dict
+
+    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
+        code, opt_dict = self.add_opt(complex_opts, max_opts, opt_dict)
+
+        mutant = MutantFileINFO(mutant_file, self.compiler, self.global_opts, self.args, opt_dict)
+        mutant.write_to_file(code)
+        return mutant
 
 
 class MutantFileINFO(FileINFO):
@@ -117,6 +148,8 @@ class MutantFileINFO(FileINFO):
             self.functions = functions.copy()
         else:
             self.functions : dict[str: list[str]] = dict()
+        if not self.global_opts:
+            self.global_opts = random.choice(SIMPLE_OPTS)
 
     def is_mutant(self):
         return True
@@ -124,25 +157,31 @@ class MutantFileINFO(FileINFO):
     def add_func_opts(self, function : str, opts : list[str]):
         self.functions[function] = opts
 
+    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
+        code, _ = self.add_opt(opt_dict=self.functions)
+        self.write_to_file(code)
+        return self
+
     @property
     def fileinfo(self) -> dict:
         fileinfo_dict = super().fileinfo
         fileinfo_dict["functions"] = self.functions
         return fileinfo_dict
 
-
-class ReducedPatchFileINFO(MutantFileINFO):
-    def __init__(self, filepath: str = "", compiler: str = "gcc",
-                 global_opts: str = "", args: list[str] = None,
-                 functions : dict[str: list[str]] = None,
-                 mutant: MutantFileINFO = None):
-        if mutant is None:
-            super().__init__(filepath, compiler, global_opts, args, functions)
-        else:
-            reduced_patch_file = mutant.abspath.replace(".c", f"_p.c")
-            super().__init__(reduced_patch_file, mutant.compiler,
-                             mutant.global_opts, mutant.args,
-                             mutant.functions.copy())
+    def reduce_patch(self, timeout: float = 1):
+        funcs = self.functions.copy()
+        for func, opts in funcs:
+            for opt in opts:
+                res = self.res
+                self.functions[func].remove(opt)
+                self.mutate(opt_dict=self.functions)
+                self.process_file(timeout=timeout)
+                if self.res != res:
+                    self.functions[func].append(opt)
+                else:
+                    print(f"Reduced {opt} from {func} in {self.basename}")
+        self.mutate(opt_dict=self.functions)
+        self.process_file(timeout=timeout)
 
 
 class CaseManager:
@@ -150,16 +189,12 @@ class CaseManager:
         self.case_dir: str = orig.cwd
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
-        self.reduced_patch_mutants : list[ReducedPatchFileINFO] = []
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
         
     def add_mutant(self, mutant: MutantFileINFO):
         self.mutants.append(mutant)
-
-    def add_reduced_patch_mutant(self, mutant: ReducedPatchFileINFO):
-        self.reduced_patch_mutants.append(mutant)
 
     def is_diff(self) -> bool:
         results = set()
@@ -186,18 +221,21 @@ class CaseManager:
         new_case = CaseManager(copied_orig)
         for mutant in self.mutants:
             new_case.add_mutant(mutant.copy2dir(new_dir))
-        for mutant in self.reduced_patch_mutants:
-            new_case.add_reduced_patch_mutant(mutant.copy2dir(new_dir))
 
         return new_case
+
+    def mutate(self, nums: int , complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
+        for i in range(nums):
+            mutant_file = f"{self.case_dir}/mutant_{i}.c"
+            mutant = self.orig.mutate(mutant_file, complex_opts, max_opts, opt_dict)
+            self.add_mutant(mutant)
 
     @property
     def log(self) -> dict:
         return {
             "case_dir": self.case_dir,
             "orig": self.orig.fileinfo,
-            "mutants": [mutant.fileinfo for mutant in self.mutants],
-            "reduced_patch_mutants": [mutant.fileinfo for mutant in self.reduced_patch_mutants]
+            "mutants": [mutant.fileinfo for mutant in self.mutants]
         }
 
 
@@ -225,15 +263,11 @@ def create_case_from_log(log: dict | str) -> CaseManager:
         mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info, MutantFileINFO)
         case.add_mutant(mutant)
 
-    for mutant_info in log["reduced_patch_mutants"]:
-        mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info, ReducedPatchFileINFO)
-        case.add_reduced_patch_mutant(mutant)
-
     return case
 
 def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
-                                       file_class: Type[FileINFO, MutantFileINFO, ReducedPatchFileINFO]) \
-                                                -> Type[FileINFO, MutantFileINFO, ReducedPatchFileINFO]:
+                                       file_class: Type[FileINFO, MutantFileINFO]) \
+                                                -> Type[FileINFO, MutantFileINFO]:
     if file_class == FileINFO:
         fileinfo = file_class(case_dir + fileinfo_dict["basename"], fileinfo_dict["compiler"],
                               fileinfo_dict["global_opts"], fileinfo_dict["args"])

@@ -115,4 +115,4 @@ COMPLEX_OPTS_GCC = tuple(
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
-OPT_FORMAT = '__attribute__((optimize("{}")));'
+OPT_FORMAT = '__attribute__((optimize("{}")))'
