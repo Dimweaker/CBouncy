@@ -1,9 +1,9 @@
-from multiprocessing import Process, Value
+import os
 import subprocess
+from multiprocessing import Process, Value
 
-from filemanager import *
-
-CSMITH_HOME = os.environ["CSMITH_HOME"]
+from filemanager import CaseBuffer, CaseManager, FileINFO
+from configs import CSMITH_HOME
 
 class ProgramGenerator:
     def __init__(self, test_dir: str, generate_num=100, csmith_args: list[str] = None,

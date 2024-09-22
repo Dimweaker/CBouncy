@@ -5,18 +5,18 @@ from shutil import copyfile
 from tempfile import mkdtemp
 import os
 
-from filemanager import CaseManager, FileINFO, ReducedPatchFileINFO, CaseBuffer
-from configs import PREFIX_TEXT, SUFFIX_TEXT, OPT_FORMAT, SIMPLE_OPTS, CSMITH_HOME
+from filemanager import CaseManager, CaseBuffer
+from configs import PREFIX_TEXT, SUFFIX_TEXT
 
 class Reducer:
-    def __init__(self, inputbuffer: CaseBuffer, timeout: float = 5):
-        self.inputbuffer = inputbuffer
+    def __init__(self, input_buffer: CaseBuffer, timeout: float = 5):
+        self.input_buffer = input_buffer
         self.timeout = timeout
 
     def reduce(self):
         while True:
             # main loop of reducer thread
-            case = self.inputbuffer.get()
+            case = self.input_buffer.get()
             # 1. reduce patch for each case
             self.reduce_patch(case)
             # ! case reduction take place in sub tmpdir
@@ -31,13 +31,6 @@ class Reducer:
         # reduce a single patch
         for mutant in case.mutants:
             mutant.reduce_patch(timeout=self.timeout)
-
-
-    @staticmethod
-    def get_declaration_scope(raw_code : str) -> str:
-        """Get functions from a C source file"""
-        declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", raw_code, re.S)
-        return declaration_scope.group() if declaration_scope else ""
 
 
     def reduce_case(self, reduce_dir: str):

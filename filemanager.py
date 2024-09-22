@@ -125,18 +125,24 @@ class FileINFO:
                 opt_dict = {func: [random.choice(SIMPLE_OPTS)] for func in funcs}
         code = raw_code
         for key, value in opt_dict.items():
-            opt_str = ",".join(value) if complex_opts else value[0]
-            code = re.sub(rf"({key}\(.*?\)).*?;",
-                          lambda r: f"{r.group(1)} {OPT_FORMAT.format(opt_str)};", code)
+            if value:
+                opt_str = ",".join(value) if complex_opts else value[0]
+                if key not in code:
+                    return "", opt_dict
+                code = re.sub(rf"({key}\(.*?\)).*?;",
+                              lambda r: f"{r.group(1)} {OPT_FORMAT.format(opt_str)};", code)
 
         return code, opt_dict
 
     def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
         code, opt_dict = self.add_opt(complex_opts, max_opts, opt_dict)
 
-        mutant = MutantFileINFO(mutant_file, self.compiler, self.global_opts, self.args, opt_dict)
-        mutant.write_to_file(code)
-        return mutant
+        if code:
+            mutant = MutantFileINFO(mutant_file, self.compiler, self.global_opts, self.args, opt_dict)
+            mutant.write_to_file(code)
+            return mutant
+        else:
+            return None
 
 
 class MutantFileINFO(FileINFO):
