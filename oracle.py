@@ -1,7 +1,7 @@
 import shutil
 from multiprocessing import Process
 from filemanager import *
-from mail import send_mail, zip_dir
+from utils import send_mail, zip_dir
 from configs import MAIL_CONFIG
 
 
@@ -22,17 +22,24 @@ class Oracle:
 
     @staticmethod
     def compile_program(file: FileINFO):
-        process = subprocess.Popen(file.cmd, stdout=subprocess.PIPE, cwd=file.cwd)
+        process = subprocess.Popen(file.cmd, cwd=file.cwd,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
         process.communicate()
         if process.returncode != 0:
             # ! compile failed
-            file.res = "Compile failed"
+            err_msg = process.stderr.decode('utf-8')
+            if "segmentation fault" in err_msg:
+                file.res = "Compiler crashed"
+            else:
+                file.res = "Compile failed"
 
     def test_case(self):
         while True:
             case = self.input_buffer.get()
             print("--- Testing case ---")
 
+            # TODO: switch case regarding to case.is_infinite_loops
             case.process(self.timeout)
             
             # find diff in outputs

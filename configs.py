@@ -68,7 +68,6 @@ COMPLEX_OPTS_GCC = tuple(
 -fdelete-null-pointer-checks
 -fdevirtualize  -fdevirtualize-speculatively
 -fexpensive-optimizations
--ffinite-loops
 -fgcse  -fgcse-lm
 -fhoist-adjacent-loads
 -finline-functions
@@ -111,6 +110,12 @@ COMPLEX_OPTS_GCC = tuple(
 -fvect-cost-model=dynamic
 -fversion-loops-for-strides
 """.strip().split("\n")
+)
+
+AGGRESIVE_OPTS = tuple(
+"""
+-ffinite-loops
+""".strip().split('\n')
 )
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"

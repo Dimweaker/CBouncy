@@ -36,10 +36,8 @@ class CodeMutator:
         # TODO: gen variants for gcc and clang
         while True:
             case = self.input_buffer.get()
-            # print(f"--- Mutating case {case.get_casename()} ---")
             
             # main mutate
             case.mutate(self.mutate_num, self.complex_opts, self.max_opts)
             
-            # print(f"--- Finished mutating case {case.case_dir} ---")
             self.output_buffer.push(case)
