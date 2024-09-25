@@ -7,7 +7,7 @@ with open("config.json", "r") as f:
 CSMITH_HOME = os.environ["CSMITH_HOME"]
 
 SIMPLE_OPTS = (
-    "O0", "O1", "O2", "O3", "Os", "Ofast", "Og"
+    "-O0", "-O1", "-O2", "-O3", "-Os", "-Ofast", "-Og"
 )
 
 COMPLEX_OPTS_GCC = tuple(
@@ -121,3 +121,17 @@ AGGRESIVE_OPTS = tuple(
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
 OPT_FORMAT = '__attribute__((optimize("{}")))'
+
+
+SCRIPT = """
+#!/bin/bash
+
+output=$(python reduce.py {})
+
+# 检查输出是否为 True
+if [ "$output" == "1" ]; then
+    exit 1
+else
+    exit 0
+fi
+"""

@@ -35,7 +35,7 @@ class FileINFO:
 
     @property
     def cmd(self) -> str:
-        return f"{self.compiler} {self.abspath} -I{CSMITH_HOME}/include -o {self.exe} -w {self.global_opts} {' '.join(self.args)}"
+        return f"{self.compiler} {self.abspath} -I{CSMITH_HOME}/include -w {self.global_opts} {' '.join(self.args)} -o {self.exe}".strip()
 
     @property
     def exe(self) -> str:
@@ -87,7 +87,8 @@ class FileINFO:
             f.write(code)
 
     def compile_program(self):
-        process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, cwd=self.cwd)
+        cmd = list(filter(lambda x: x, self.cmd.split(" ")))
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
         process.communicate()
         if process.returncode != 0:
             self.res = "Compile failed"
@@ -109,11 +110,10 @@ class FileINFO:
 
     def add_opt(self, complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
         raw_code = self.text
-        declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", raw_code, re.S)
-        declaration_scope = declaration_scope.group() if declaration_scope else ""
-        functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
-
         if opt_dict is None:
+            declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", raw_code, re.S)
+            declaration_scope = declaration_scope.group() if declaration_scope else ""
+            functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
             funcs = [re.search(rf"(\S*)\(.*\).*?;", func).group(1) for func in functions]
             if complex_opts:
                 opt_dict = {
@@ -127,10 +127,11 @@ class FileINFO:
         for key, value in opt_dict.items():
             if value:
                 opt_str = ",".join(value) if complex_opts else value[0]
-                if key not in code:
+                if key + "(" not in code:
                     return "", opt_dict
                 code = re.sub(rf"({key}\(.*?\)).*?;",
-                              lambda r: f"{r.group(1)} {OPT_FORMAT.format(opt_str)};", code)
+                              lambda r: f"{r.group(1)} {OPT_FORMAT.format(opt_str)};",
+                              code, count=1)
 
         return code, opt_dict
 
@@ -176,16 +177,23 @@ class MutantFileINFO(FileINFO):
 
     def reduce_patch(self, timeout: float = 1):
         funcs = self.functions.copy()
-        for func, opts in funcs:
-            for opt in opts:
-                res = self.res
-                self.functions[func].remove(opt)
-                self.mutate(opt_dict=self.functions)
-                self.process_file(timeout=timeout)
-                if self.res != res:
-                    self.functions[func].append(opt)
-                else:
-                    print(f"Reduced {opt} from {func} in {self.basename}")
+        res = self.res
+        for func, opts in funcs.items():
+            self.functions[func].clear()
+            self.mutate(opt_dict=self.functions)
+            self.process_file(timeout=timeout)
+            if self.res == res:
+                print(f"Reduced All options from {func} in {self.basename}")
+            else:
+                self.functions[func] = opts
+                for opt in opts:
+                    self.functions[func].remove(opt)
+                    self.mutate(opt_dict=self.functions)
+                    self.process_file(timeout=timeout)
+                    if self.res != res:
+                        self.functions[func].append(opt)
+                    else:
+                        print(f"Reduced {opt} from {func} in {self.basename}")
         self.mutate(opt_dict=self.functions)
         self.process_file(timeout=timeout)
 
@@ -275,14 +283,14 @@ def create_case_from_log(log: dict | str) -> CaseManager:
     return case
 
 def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
-                                       file_class: Type[FileINFO, MutantFileINFO]) \
-                                                -> Type[FileINFO, MutantFileINFO]:
+                                       file_class: Type[FileINFO | MutantFileINFO]) \
+                                                -> FileINFO | MutantFileINFO:
     if file_class == FileINFO:
-        fileinfo = file_class(case_dir + fileinfo_dict["basename"], fileinfo_dict["compiler"],
+        fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
                               fileinfo_dict["global_opts"], fileinfo_dict["args"])
         fileinfo.res = fileinfo_dict["res"]
     else:
-        fileinfo = file_class(case_dir + fileinfo_dict["basename"], fileinfo_dict["compiler"],
+        fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
                               fileinfo_dict["global_opts"], fileinfo_dict["args"], fileinfo_dict["functions"])
         fileinfo.res = fileinfo_dict["res"]
     return fileinfo

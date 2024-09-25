@@ -24,4 +24,4 @@ if __name__ == "__main__":
     reduce_dir = sys.argv[1]
     validator = Validator(reduce_dir)
     flag = validator.apply_transformation()
-    print(int(flag))
+    print(int(flag), end="")

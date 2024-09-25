@@ -10,6 +10,7 @@ from filemanager import *
 from generator import ProgramGenerator
 from mutator import CodeMutator
 from oracle import Oracle
+from reducer import Reducer
 
 args = argparse.ArgumentParser()
 args.add_argument("-t", "--timeout", type=float, default=0.3)
@@ -19,7 +20,7 @@ args.add_argument("--tmp_path", type=str, default="")
 args.add_argument("--gen_clang", action="store_true")
 args.add_argument("--gen_gcc", action="store_true")
 args.add_argument("--generate_num", type=int, default=100)
-args.add_argument("--mutate_num", type=int, default=10)
+args.add_argument("--mutate_num", type=int, default=5)
 
 class CBouncy:
     def __init__(self, test_dir : str, generate_num: int = 100, mutate_num: int = 10,
@@ -28,9 +29,11 @@ class CBouncy:
                  complex_opts: bool = False, csmith_args=None):
         buffer1 = CaseBuffer(20)
         buffer2 = CaseBuffer(5)
+        buffer3 = CaseBuffer(5)
         self.generator = ProgramGenerator(test_dir, generate_num, csmith_args, output_buffer=buffer1)
         self.mutator = CodeMutator(mutate_num, complex_opts, max_opts, gen_gcc, gen_clang, input_buffer=buffer1, output_buffer=buffer2)
         self.oracle = Oracle(timeout, input_buffer=buffer2)
+        self.reducer = Reducer(input_buffer=buffer3, timeout=timeout)
 
     def run(self):
         print("--- Start testing ---")
@@ -38,10 +41,12 @@ class CBouncy:
         self.generator.run()
         self.mutator.run()
         self.oracle.run()
+        self.reducer.run()
 
         self.generator.join()
         self.mutator.join()
         self.oracle.join()
+        self.reducer.join()
 
 def run(args = None, csmith_args=None):
     if args.tmp_path:
@@ -64,7 +69,7 @@ def run(args = None, csmith_args=None):
     complex_opts = args.complex_opts
 
     cb = CBouncy(test_dir, generate_num, mutate_num, timeout,
-                 max_opts, complex_opts, gen_gcc, gen_clang,
+                 max_opts, gen_gcc, gen_clang, complex_opts,
                  csmith_args)
     cb.run()
     if not os.listdir(test_dir):
