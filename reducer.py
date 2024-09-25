@@ -62,12 +62,11 @@ class Reducer:
 
 if __name__ == "__main__":
     from filemanager import create_case_from_log
-    # case = create_case_from_log("/home/dimweaker/dev/compiler_test/tmp_v_n3v4yw/case_535/log.json")
-    # for mutant in case.mutants:
-    #     mutant.reduce_patch(timeout=5)
-    # new_dir = mkdtemp(dir=case.case_dir)
-    # new_case = case.copyfiles(new_dir)
-    # new_case.save_log()
-    # Reducer.reduce_case(new_case)
-    case = create_case_from_log("/home/dimweaker/dev/compiler_test/tmp_v_n3v4yw/case_535/tmplogipzea/log.json")
-    Reducer.reduce_case(case)
+    case = create_case_from_log("/home/dimweaker/dev/compiler_test/tmp_v_n3v4yw/case_535/log.json")
+    for mutant in case.mutants:
+        mutant.reduce_patch(timeout=5)
+    new_dir = mkdtemp(dir=case.case_dir)
+    new_case = case.copyfiles(new_dir)
+    new_case.save_log()
+    # case = create_case_from_log("/home/dimweaker/dev/compiler_test/tmp_v_n3v4yw/case_535/tmplogipzea/log.json")
+    # Reducer.reduce_case(case)

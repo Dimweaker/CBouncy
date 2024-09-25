@@ -16,12 +16,16 @@ class Validator:
         self.reduce_dir = reduce_dir
 
     def apply_transformation(self):
+        res = self.case.orig.res
+        self.case.orig.process_file(timeout=1)
+        if self.case.orig.res != res:
+            return False
         for mutant in self.case.mutants:
-            new_mutant = mutant.mutate(mutant_file=mutant.filepath.replace(".c", "_r.c"),
+            new_mutant = self.case.orig.mutate(mutant_file=mutant.filepath.replace(".c", "_r.c"),
                                        opt_dict=mutant.functions)
             if new_mutant is None:
                 return False
-            new_mutant.process_file(timeout=5)
+            new_mutant.process_file(timeout=1)
             if new_mutant.res != mutant.res:
                 return False
         return True

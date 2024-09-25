@@ -125,13 +125,12 @@ class FileINFO:
                 opt_dict = {func: [random.choice(SIMPLE_OPTS)] for func in funcs}
         code = raw_code
         for key, value in opt_dict.items():
-            if value:
-                opt_str = ",".join(value) if complex_opts else value[0]
-                if key + "(" not in code:
-                    return "", opt_dict
-                code = re.sub(rf"({key}\(.*?\)).*?;",
-                              lambda r: f"{r.group(1)} {OPT_FORMAT.format(opt_str)};",
-                              code, count=1)
+            opt_str = OPT_FORMAT.format(",".join(value) if complex_opts else value[0]) if value else ""
+            if key + "(" not in code and value:
+                return "", opt_dict
+            code = re.sub(rf"({key}\(.*?\)).*?;",
+                          lambda r: f"{r.group(1)} {opt_str};",
+                          code, count=1)
 
         return code, opt_dict
 
