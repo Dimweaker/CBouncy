@@ -108,8 +108,11 @@ class FileINFO:
         self.compile_program()
         self.run_program(timeout=timeout)
 
-    def add_opt(self, complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
-        raw_code = self.text
+    def add_opt(self, complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
+        if code:
+            raw_code = code
+        else:
+            raw_code = self.text
         if opt_dict is None:
             declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", raw_code, re.S)
             declaration_scope = declaration_scope.group() if declaration_scope else ""
@@ -134,8 +137,8 @@ class FileINFO:
 
         return code, opt_dict
 
-    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
-        code, opt_dict = self.add_opt(complex_opts, max_opts, opt_dict)
+    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
+        code, opt_dict = self.add_opt(complex_opts, max_opts, opt_dict, code)
 
         if code:
             mutant = MutantFileINFO(mutant_file, self.compiler, self.global_opts, self.args, opt_dict)
@@ -163,8 +166,8 @@ class MutantFileINFO(FileINFO):
     def add_func_opts(self, function : str, opts : list[str]):
         self.functions[function] = opts
 
-    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
-        code, _ = self.add_opt(opt_dict=self.functions)
+    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
+        code, _ = self.add_opt(opt_dict=self.functions, code=code)
         self.write_to_file(code)
         return self
 
