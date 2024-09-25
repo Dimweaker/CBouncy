@@ -1,3 +1,4 @@
+import os
 import random
 import re
 import subprocess
@@ -39,11 +40,11 @@ class Reducer:
         # ! turn off (pass-clex rename-toks), (pass-clang rename-fun) in creduce
         # TODO: deal with decl reduction in the file
         # backup files
-        script = SCRIPT.format(case.case_dir)
-        with open("reduce.sh", "w") as f:
+        script = SCRIPT.format(os.getcwd(), os.getcwd(), case.case_dir)
+        with open(f"{case.case_dir}/reduce.sh", "w") as f:
             f.write(script)
             f.close()
-        subprocess.run(["creduce", "reduce.sh", case.orig.abspath])
+        subprocess.run(["creduce", "reduce.sh", case.orig.abspath], cwd=case.case_dir)
 
 
 

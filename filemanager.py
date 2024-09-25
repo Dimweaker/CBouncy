@@ -268,7 +268,7 @@ class CaseBuffer:
         return case    
 
 
-def create_case_from_log(log: dict | str) -> CaseManager:
+def create_case_from_log(log: [dict , str]) -> CaseManager:
     if isinstance(log, str):
         log = json.load(open(log, "r"))
 
@@ -283,8 +283,8 @@ def create_case_from_log(log: dict | str) -> CaseManager:
     return case
 
 def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
-                                       file_class: Type[FileINFO | MutantFileINFO]) \
-                                                -> FileINFO | MutantFileINFO:
+                                       file_class: [Type[FileINFO], Type[MutantFileINFO]]) \
+                                                -> [FileINFO , MutantFileINFO]:
     if file_class == FileINFO:
         fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
                               fileinfo_dict["global_opts"], fileinfo_dict["args"])

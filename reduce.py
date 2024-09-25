@@ -1,4 +1,11 @@
 import sys
+import os
+
+current_file_path = os.path.abspath(__file__)
+
+current_dir = os.path.dirname(current_file_path)
+print(current_dir)
+os.environ["PATH"] = f"{os.environ['PATH']}:{current_dir}"
 
 from filemanager import create_case_from_log
 
@@ -24,4 +31,6 @@ if __name__ == "__main__":
     reduce_dir = sys.argv[1]
     validator = Validator(reduce_dir)
     flag = validator.apply_transformation()
-    print(int(flag), end="")
+    with open(f"{reduce_dir}/flag", "a") as f:
+        f.write("0" if flag else "1")
+    exit(0 if flag else 1)

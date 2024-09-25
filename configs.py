@@ -123,15 +123,11 @@ SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
 OPT_FORMAT = '__attribute__((optimize("{}")))'
 
 
-SCRIPT = """
-#!/bin/bash
+SCRIPT = """#!/bin/bash
+cd {}
+python {}/reduce.py {}
 
-output=$(python reduce.py {})
+exit_code=$?
 
-# 检查输出是否为 True
-if [ "$output" == "1" ]; then
-    exit 1
-else
-    exit 0
-fi
+exit $exit_code
 """
