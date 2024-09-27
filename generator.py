@@ -43,7 +43,6 @@ class ProgramGenerator:
                 f.close()
 
             case = CaseManager(FileINFO(os.path.join(test_dir, "orig.c")))
-            # TODO: inline mutate step
             self.output_buffer.push(case)
 
     def run(self):

@@ -21,17 +21,6 @@ def send_mail(config: dict, subject: str, content: str, attachment: str = None):
 def zip_dir(dir_path: str, zip_path: str):
     shutil.make_archive(zip_path, 'zip', dir_path)
 
-def infinite_check(file: str) -> bool:
-    """a function using a static analyzer to check if function contains dead loops
-
-    Args:
-        file (str): a valid path to C file
-    
-    Return:
-        bool : True if analyzer detects no dead loops
-    """
-    pass
-
 def compile_file(cmd: list, cwd: str=None)-> str:
     """compile a program to execution file
 

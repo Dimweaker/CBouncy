@@ -2,7 +2,6 @@ import random
 import re
 from multiprocessing import Process
 
-from configs import SIMPLE_OPTS, COMPLEX_OPTS_GCC, PREFIX_TEXT, SUFFIX_TEXT, OPT_FORMAT
 from filemanager import *
 
 
@@ -37,7 +36,11 @@ class CodeMutator:
         while True:
             case = self.input_buffer.get()
             
+            # TODO: for infinite-loops 
             # main mutate
-            case.mutate(self.mutate_num, self.complex_opts, self.max_opts)
+            if self.gen_gcc:
+                case.mutate_GCC(self.mutate_num, self.complex_opts, self.max_opts)
+            if self.gen_clang:
+                pass
             
             self.output_buffer.push(case)

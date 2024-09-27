@@ -1,6 +1,12 @@
 import os
 import json
 
+UNCOMPILED = "uncompiled"
+COMPILE_TIMEOUT = "compile timeout"
+COMPILER_CRASHED = "compiler crashed"
+RUNTIME_TIMEOUT = "runtime timeout"
+RUNTIME_CRASHED = "runtime crashed"
+
 with open("config.json", "r") as f:
     MAIL_CONFIG = json.load(f)
 

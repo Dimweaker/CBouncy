@@ -8,7 +8,11 @@ from multiprocessing import Queue
 from shutil import copyfile
 from typing import Type
 
-from configs import CSMITH_HOME, COMPLEX_OPTS_GCC, SIMPLE_OPTS, OPT_FORMAT, PREFIX_TEXT, SUFFIX_TEXT
+from configs import (CSMITH_HOME, UNCOMPILED,
+                     COMPILE_TIMEOUT, COMPILER_CRASHED,
+                     RUNTIME_TIMEOUT, RUNTIME_CRASHED,
+                     COMPLEX_OPTS_GCC, SIMPLE_OPTS, AGGRESIVE_OPTS,
+                     OPT_FORMAT, PREFIX_TEXT, SUFFIX_TEXT)
 
 
 class FileINFO:
@@ -16,19 +20,28 @@ class FileINFO:
                  global_opts: str = "", args: list[str] = None):
         """
 
-        :param filepath: 要求为一个绝对路径
-        :param compiler:
-        :param global_opts:
-        :param args: 其他参数
+        :param filepath: should be an absolute path
+        :param compiler: compiler used to compile
+        :param global_opts: opt flags appeared in command line
+        :param args: other args appeared in the command line for compiling
+        
+        ## results of a file has five types:
+            1. compile timeout
+            2. compiler crashed
+            3. runtime timeout
+            4. runtime crashed
+            5. checksum=xxx     ( program successfully compiled and halted )
         """
-        self.compiler = compiler
+        self.compiler : str = compiler
         self.global_opts = global_opts
         if args is not None:
             self.args = args
         else:
             self.args : list[str] = []
         self.filepath = filepath
-        self.res = None
+        self.res = UNCOMPILED
+
+        self.case : CaseManager = None
 
     def is_mutant(self):
         return False
@@ -39,7 +52,7 @@ class FileINFO:
 
     @property
     def exe(self) -> str:
-        return f"{self.basename.rstrip('.c')}_gcc.out"
+        return f"{self.basename.rstrip('.c')}_{self.compiler}.out"
 
     @property
     def basename(self) -> str:
@@ -70,7 +83,6 @@ class FileINFO:
         copied_file.abspath = f"{new_dir}/{self.basename}"
         return copied_file
 
-
     @property
     def fileinfo(self) -> dict:
         return {
@@ -86,15 +98,22 @@ class FileINFO:
         with open(self.filepath, "w") as f:
             f.write(code)
 
-    def compile_program(self):
-        cmd = list(filter(lambda x: x, self.cmd.split(" ")))
+    def compile_program(self, args: list[str] = None):
+        if args:
+            cmd = list(filter(lambda x: x, self.cmd.split(" ")))+args
+        else:
+            cmd = list(filter(lambda x: x, self.cmd.split(" ")))
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
-        process.communicate()
-        if process.returncode != 0:
-            self.res = "Compile failed"
+        try:
+            process.communicate(timeout=60)
+            if process.returncode != 0:
+                self.res = COMPILER_CRASHED
+        except subprocess.TimeoutExpired:
+            self.res = COMPILE_TIMEOUT
 
     def run_program(self, timeout: float = 1):
-        if self.res == "Compile failed":
+        assert self.res==UNCOMPILED, "run before compiling"
+        if self.res == COMPILE_TIMEOUT or self.res == COMPILER_CRASHED:
             return
 
         try:
@@ -102,43 +121,37 @@ class FileINFO:
                                     cwd=self.cwd, timeout=timeout)
             self.res = result.stdout.decode("utf-8")
         except subprocess.TimeoutExpired:
-            self.res = "Timeout"
+            self.res = RUNTIME_TIMEOUT
 
-    def process_file(self, timeout: float = 1):
-        self.compile_program()
+    def process_file(self, timeout: float = 1, comp_args: list[str] = None) -> str:
+        self.compile_program(args=comp_args)
         self.run_program(timeout=timeout)
+        return self.res
 
-    def add_opt(self, complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
-        if code:
-            raw_code = code
-        else:
-            raw_code = self.text
-        if opt_dict is None:
-            declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", raw_code, re.S)
-            declaration_scope = declaration_scope.group() if declaration_scope else ""
-            functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
-            funcs = [re.search(rf"(\S*)\(.*\).*?;", func).group(1) for func in functions]
-            if complex_opts:
-                opt_dict = {
-                    func:
-                        random.sample(COMPLEX_OPTS_GCC, random.randint(1, max_opts))
-                    for func in funcs
-                }
-            else:
-                opt_dict = {func: [random.choice(SIMPLE_OPTS)] for func in funcs}
-        code = raw_code
+    def add_opt(self, max_opts : int, opt_cands: list[str]) -> dict[str : list[str]]:
+        code = self.text
+        # 1. grep function decls and add opt flags for each
+        declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", code, re.S)
+        declaration_scope = declaration_scope.group() if declaration_scope else ""
+        functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
+        funcs = [re.search(rf"(\S*)\(.*\).*?;", func).group(1) for func in functions]
+        opt_dict = {
+            func:
+                random.sample(opt_cands, random.randint(1, max_opts))
+            for func in funcs
+        }
+        # 2. generate mutated code 
         for key, value in opt_dict.items():
-            opt_str = OPT_FORMAT.format(",".join(value) if complex_opts else value[0]) if value else ""
-            if key + "(" not in code and value:
+            opt_str = OPT_FORMAT.format(",".join(value))
+            if key + "(" not in code:
                 return "", opt_dict
             code = re.sub(rf"({key}\(.*?\)).*?;",
                           lambda r: f"{r.group(1)} {opt_str};",
                           code, count=1)
-
         return code, opt_dict
 
-    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
-        code, opt_dict = self.add_opt(complex_opts, max_opts, opt_dict, code)
+    def mutate(self, mutant_file: str, max_opts: int, candidate_opts: list[str]):
+        code, opt_dict = self.add_opt(max_opts, candidate_opts)
 
         if code:
             mutant = MutantFileINFO(mutant_file, self.compiler, self.global_opts, self.args, opt_dict)
@@ -207,11 +220,14 @@ class CaseManager:
         self.mutants : list[MutantFileINFO] = []
         self.is_infinite_case : bool = False
 
+        orig.case = self
+
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
         
     def add_mutant(self, mutant: MutantFileINFO):
         self.mutants.append(mutant)
+        mutant.case = self
 
     def is_diff(self) -> bool:
         results = set()
@@ -226,6 +242,12 @@ class CaseManager:
             mutant.process_file(timeout=timeout)
 
     def recheck(self):
+        orig = self.orig
+        orig_results = set()
+        for glob_opt in SIMPLE_OPTS:
+            orig.process_file(comp_args=[glob_opt])
+            orig_results.add(orig.res)
+            
         self.orig.run_program(timeout=60)
         for mutant in self.mutants:
             mutant.run_program(timeout=60)
@@ -241,12 +263,21 @@ class CaseManager:
 
         return new_case
 
-    def mutate(self, nums: int , complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
+    def mutate_GCC(self, nums: int , complex_opts: bool = False, max_opts: int = 35):
         # TODO: mutate based on self.is_infinite_case
         # ? Suggestion: pass a opts tuple to orig.mutate for sampling
+        # generate candidate opts and max_opts
+        if complex_opts:
+            candidates_GCC = COMPLEX_OPTS_GCC
+        else:
+            max_opts = 1
+            candidates_GCC = SIMPLE_OPTS
+        if not self.is_infinite_case:
+            candidates_GCC += AGGRESIVE_OPTS
+        
         for i in range(nums):
-            mutant_file = f"{self.case_dir}/mutant_{i}.c"
-            mutant = self.orig.mutate(mutant_file, complex_opts, max_opts, opt_dict)
+            mutant_file = f"{self.case_dir}/mutant_gcc_{i}.c"
+            mutant = self.orig.mutate(mutant_file, max_opts, candidates_GCC)
             self.add_mutant(mutant)
 
     @property
@@ -270,7 +301,7 @@ class CaseBuffer:
         return case    
 
 
-def create_case_from_log(log: [dict , str]) -> CaseManager:
+def create_case_from_log(log: dict | str) -> CaseManager:
     if isinstance(log, str):
         log = json.load(open(log, "r"))
 
@@ -285,7 +316,7 @@ def create_case_from_log(log: [dict , str]) -> CaseManager:
     return case
 
 def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
-                                       file_class: [Type[FileINFO], Type[MutantFileINFO]]) \
+                                       file_class: FileINFO | MutantFileINFO )\
                                                 -> [FileINFO , MutantFileINFO]:
     if file_class == FileINFO:
         fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],

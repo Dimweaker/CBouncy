@@ -46,8 +46,6 @@ class Reducer:
             f.close()
         subprocess.run(["creduce", "reduce.sh", case.orig.abspath], cwd=case.case_dir)
 
-
-
         # generate a reduce bash
 
     def run(self):
@@ -62,11 +60,10 @@ class Reducer:
 
 if __name__ == "__main__":
     from filemanager import create_case_from_log
-    case = create_case_from_log("/home/dimweaker/dev/compiler_test/tmp_v_n3v4yw/case_535/log.json")
-    for mutant in case.mutants:
-        mutant.reduce_patch(timeout=5)
-    new_dir = mkdtemp(dir=case.case_dir)
-    new_case = case.copyfiles(new_dir)
-    new_case.save_log()
-    # case = create_case_from_log("/home/dimweaker/dev/compiler_test/tmp_v_n3v4yw/case_535/tmplogipzea/log.json")
-    # Reducer.reduce_case(case)
+    case = create_case_from_log("/root/CBouncy/case_535/tmprrr_9etw/log.json")
+    # for mutant in case.mutants:
+    #     mutant.reduce_patch(timeout=5)
+    # new_dir = mkdtemp(dir=case.case_dir)
+    # new_case = case.copyfiles(new_dir)
+    # new_case.save_log()
+    Reducer.reduce_case(case)
