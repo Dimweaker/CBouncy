@@ -8,31 +8,11 @@ from configs import (MAIL_CONFIG,
 
 
 class Oracle:
-    """class to describe oracle    
-
-    ## the oracle consists of two parts:
-    - single file check:
-        1. compile file and exec.
-        2.1 if result is a checksum, then set this as orig's result and step into part two.
-        2.2 if result is other than "RUNTIME TIMEOUT" or "checksum=xxx", report a bug, and discard all mutants.
-        2.3 if result is "RUNTIME TIMEOUT", recheck it:
-            3.1 compile file on all SIMPLE_OPTS and exec.
-            3.2 if results are only "RUNTIME TIMEOUT", then consider the program unhaltable.
-            3.3 if results contain identical checksum, then consider the program haltable and step into part two.
-            3.4 if results diff in checksum or contains other than checksum and "RUNTIME TIMEOUT", report a bug, and discard all mutants.
-        
-    - diff between orig and mutants:
-        1.1 if all mutants generate same checksum as orig's, then no bug and discard it.
-        1.2 if results are: 
-            2.1 orig.c: checksum, and a mutant: "RUNTIME TIMEOUT", it's undetermined whether a bug is triggered.
-            2.2 orig.c: "RUNTIME TIMEOUT", and a mutant: checksum, report a bug
-            2.3 orig.c and a mutant: "RUNTIME TIMEOUT", treat as no bug
-    """
     def __init__(self, timeout: float = 20, input_buffer: CaseBuffer = None):
         self.timeout = timeout
         self.input_buffer = input_buffer
 
-        self.oracle_processes = [Process(target=self.test_case) for _ in range(5)] # 5 processes for testing
+        self.oracle_processes = [Process(target=self.test_case) for _ in range(1)] # 5 processes for testing
 
     def run(self):
         for process in self.oracle_processes:
@@ -42,6 +22,7 @@ class Oracle:
         for process in self.oracle_processes:
             process.join()
 
+    @staticmethod
     def check_file(file: FileINFO) -> bool:
         file.process_file(timeout=60)
         if file.res == COMPILE_TIMEOUT or file.res == COMPILER_CRASHED or file.res == RUNTIME_CRASHED:

@@ -8,7 +8,7 @@ from multiprocessing import Queue
 from shutil import copyfile
 from typing import Type
 
-from configs import (CSMITH_HOME, UNCOMPILED,
+from configs import (CSMITH_HOME, UNCOMPILED, COMPILED,
                      COMPILE_TIMEOUT, COMPILER_CRASHED,
                      RUNTIME_TIMEOUT, RUNTIME_CRASHED,
                      COMPLEX_OPTS_GCC, SIMPLE_OPTS, AGGRESIVE_OPTS,
@@ -110,9 +110,10 @@ class FileINFO:
                 self.res = COMPILER_CRASHED
         except subprocess.TimeoutExpired:
             self.res = COMPILE_TIMEOUT
+        self.res = COMPILED
 
     def run_program(self, timeout: float = 1):
-        assert self.res==UNCOMPILED, "run before compiling"
+        assert self.res==COMPILED, "run before compiling"
         if self.res == COMPILE_TIMEOUT or self.res == COMPILER_CRASHED:
             return
 
@@ -221,6 +222,8 @@ class CaseManager:
         self.is_infinite_case : bool = False
 
         orig.case = self
+        if orig.process_file(timeout=60) == RUNTIME_TIMEOUT:
+            self.is_infinite_case = True
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig

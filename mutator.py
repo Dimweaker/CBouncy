@@ -16,7 +16,7 @@ class CodeMutator:
         self.gen_clang = gen_clang
         self.input_buffer = input_buffer
         self.output_buffer = output_buffer
-        self.mutate_processes = [Process(target=self.mutate) for _ in range(2)]
+        self.mutate_processes = [Process(target=self.mutate) for _ in range(1)]
 
     @staticmethod
     def write_to_file(mutant_file_path: str, code: str):

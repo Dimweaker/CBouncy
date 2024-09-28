@@ -1,6 +1,7 @@
 import os
 import subprocess
 from multiprocessing import Process, Value
+import shutil
 
 from filemanager import CaseBuffer, CaseManager, FileINFO
 from configs import CSMITH_HOME
@@ -20,7 +21,7 @@ class ProgramGenerator:
         else:
             self.csmith_args = csmith_args
 
-        self.gen_processes = [Process(target=self.generate_case) for _ in range(15)] # processes for csmith program generating
+        self.gen_processes = [Process(target=self.generate_case) for _ in range(1)] # processes for csmith program generating
 
     def generate_case(self):
         while True:
@@ -42,7 +43,13 @@ class ProgramGenerator:
                 f.write(orig_program)
                 f.close()
 
-            case = CaseManager(FileINFO(os.path.join(test_dir, "orig.c")))
+            orig = FileINFO(os.path.join(test_dir, "orig.c"))
+            case = CaseManager(orig)
+            if case.is_infinite_case:
+                # for now, we get rid of those timeout case
+                print(f"rid of {case.case_dir}")
+                shutil.rmtree(case.case_dir)
+                continue
             self.output_buffer.push(case)
 
     def run(self):
