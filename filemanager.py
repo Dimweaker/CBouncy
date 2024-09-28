@@ -17,7 +17,7 @@ from configs import (CSMITH_HOME, UNCOMPILED, COMPILED,
 
 class FileINFO:
     def __init__(self, filepath: str, compiler: str = "gcc",
-                 global_opts: str = "", args: list[str] = None):
+                 args: list[str] = None):
         """
 
         :param filepath: should be an absolute path
@@ -33,13 +33,13 @@ class FileINFO:
             5. checksum=xxx     ( program successfully compiled and halted )
         """
         self.compiler : str = compiler
-        self.global_opts = global_opts
         if args is not None:
             self.args = args
         else:
             self.args : list[str] = []
         self.filepath = filepath
-        self.res = UNCOMPILED
+        self.result_dict = dict()
+        self.is_infinite = False
 
         self.case : CaseManager = None
 
@@ -48,7 +48,7 @@ class FileINFO:
 
     @property
     def cmd(self) -> str:
-        return f"{self.compiler} {self.abspath} -I{CSMITH_HOME}/include -w {self.global_opts} {' '.join(self.args)} -o {self.exe}".strip()
+        return f"{self.compiler} {self.abspath} -I{CSMITH_HOME}/include -w {' '.join(self.args)} -o {self.exe}".strip()
 
     @property
     def exe(self) -> str:
@@ -91,43 +91,47 @@ class FileINFO:
             "compiler": self.compiler,
             "global_opts": self.global_opts,
             "args": self.args,
-            "res": self.res
+            "res_dict": self.result_dict
         }
 
     def write_to_file(self, code: str):
         with open(self.filepath, "w") as f:
             f.write(code)
 
-    def compile_program(self, args: list[str] = None):
-        if args:
-            cmd = list(filter(lambda x: x, self.cmd.split(" ")))+args
+    def process_file(self, timeout: float = 1, comp_args: list[str] = None) -> str:
+        # compile
+        if comp_args:
+            cmd = list(filter(lambda x: x, self.cmd.split(" ")))+comp_args
         else:
             cmd = list(filter(lambda x: x, self.cmd.split(" ")))
+        res = UNCOMPILED
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
         try:
             process.communicate(timeout=60)
             if process.returncode != 0:
-                self.res = COMPILER_CRASHED
+                res = COMPILER_CRASHED
         except subprocess.TimeoutExpired:
-            self.res = COMPILE_TIMEOUT
-        self.res = COMPILED
-
-    def run_program(self, timeout: float = 1):
-        assert self.res==COMPILED, "run before compiling"
-        if self.res == COMPILE_TIMEOUT or self.res == COMPILER_CRASHED:
-            return
+            res = COMPILE_TIMEOUT
+        res = COMPILED
+        
+        # run
+        if res == COMPILE_TIMEOUT or res == COMPILER_CRASHED:
+            self.result_dict.update({tuple(comp_args) : res})
+            return res
 
         try:
-            result = subprocess.run(f"./{self.exe}", stdout=subprocess.PIPE,
+            process = subprocess.run(f"./{self.exe}", 
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
                                     cwd=self.cwd, timeout=timeout)
-            self.res = result.stdout.decode("utf-8")
+            if process.stderr.decode('utf-8'):
+                res = RUNTIME_CRASHED
+            else:
+                res = process.stdout.decode('utf-8')
         except subprocess.TimeoutExpired:
-            self.res = RUNTIME_TIMEOUT
-
-    def process_file(self, timeout: float = 1, comp_args: list[str] = None) -> str:
-        self.compile_program(args=comp_args)
-        self.run_program(timeout=timeout)
-        return self.res
+            res = RUNTIME_TIMEOUT
+        self.result_dict.update({tuple(comp_args) : res})
+        return res
 
     def add_opt(self, max_opts : int, opt_cands: list[str]) -> dict[str : list[str]]:
         code = self.text
@@ -155,7 +159,7 @@ class FileINFO:
         code, opt_dict = self.add_opt(max_opts, candidate_opts)
 
         if code:
-            mutant = MutantFileINFO(mutant_file, self.compiler, self.global_opts, self.args, opt_dict)
+            mutant = MutantFileINFO(mutant_file, self.compiler, self.args, opt_dict)
             mutant.write_to_file(code)
             return mutant
         else:
@@ -164,54 +168,52 @@ class FileINFO:
 
 class MutantFileINFO(FileINFO):
     def __init__(self, filepath: str, compiler: str = "gcc",
-                 global_opts: str = "", args: list[str] = None,
-                 functions : dict[str: list[str]] = None):
-        super().__init__(filepath, compiler, global_opts, args)
-        if functions is not None:
-            self.functions = functions.copy()
+                 args: list[str] = None,
+                 function_dict : dict[str: list[str]] = None):
+        super().__init__(filepath, compiler, args)
+        if function_dict is not None:
+            self.function_dict = function_dict.copy()
         else:
-            self.functions : dict[str: list[str]] = dict()
-        if not self.global_opts:
-            self.global_opts = random.choice(SIMPLE_OPTS)
+            self.function_dict : dict[str: list[str]] = dict()
 
     def is_mutant(self):
         return True
 
     def add_func_opts(self, function : str, opts : list[str]):
-        self.functions[function] = opts
+        self.function_dict[function] = opts
 
-    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
-        code, _ = self.add_opt(opt_dict=self.functions, code=code)
-        self.write_to_file(code)
-        return self
+    # def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
+    #     code, _ = self.add_opt(opt_dict=self.functions, code=code)
+    #     self.write_to_file(code)
+    #     return self
 
     @property
     def fileinfo(self) -> dict:
         fileinfo_dict = super().fileinfo
-        fileinfo_dict["functions"] = self.functions
+        fileinfo_dict["function_dict"] = self.function_dict
         return fileinfo_dict
 
-    def reduce_patch(self, timeout: float = 1):
-        funcs = self.functions.copy()
-        res = self.res
-        for func, opts in funcs.items():
-            self.functions[func].clear()
-            self.mutate(opt_dict=self.functions)
-            self.process_file(timeout=timeout)
-            if self.res == res:
-                print(f"Reduced All options from {func} in {self.basename}")
-            else:
-                self.functions[func] = opts
-                for opt in opts:
-                    self.functions[func].remove(opt)
-                    self.mutate(opt_dict=self.functions)
-                    self.process_file(timeout=timeout)
-                    if self.res != res:
-                        self.functions[func].append(opt)
-                    else:
-                        print(f"Reduced {opt} from {func} in {self.basename}")
-        self.mutate(opt_dict=self.functions)
-        self.process_file(timeout=timeout)
+    # def reduce_patch(self, timeout: float = 1):
+    #     funcs = self.functions.copy()
+    #     res = self.res
+    #     for func, opts in funcs.items():
+    #         self.functions[func].clear()
+    #         self.mutate(opt_dict=self.functions)
+    #         self.process_file(timeout=timeout)
+    #         if self.res == res:
+    #             print(f"Reduced All options from {func} in {self.basename}")
+    #         else:
+    #             self.functions[func] = opts
+    #             for opt in opts:
+    #                 self.functions[func].remove(opt)
+    #                 self.mutate(opt_dict=self.functions)
+    #                 self.process_file(timeout=timeout)
+    #                 if self.res != res:
+    #                     self.functions[func].append(opt)
+    #                 else:
+    #                     print(f"Reduced {opt} from {func} in {self.basename}")
+    #     self.mutate(opt_dict=self.functions)
+    #     self.process_file(timeout=timeout)
 
 
 class CaseManager:
@@ -219,11 +221,8 @@ class CaseManager:
         self.case_dir: str = orig.cwd
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
-        self.is_infinite_case : bool = False
 
         orig.case = self
-        if orig.process_file(timeout=60) == RUNTIME_TIMEOUT:
-            self.is_infinite_case = True
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
@@ -240,20 +239,10 @@ class CaseManager:
         return len(results) != 1
 
     def process(self, timeout: float = 1):
-        self.orig.process_file(timeout=timeout)
-        for mutant in self.mutants:
-            mutant.process_file(timeout=timeout)
-
-    def recheck(self):
-        orig = self.orig
-        orig_results = set()
-        for glob_opt in SIMPLE_OPTS:
-            orig.process_file(comp_args=[glob_opt])
-            orig_results.add(orig.res)
-            
-        self.orig.run_program(timeout=60)
-        for mutant in self.mutants:
-            mutant.run_program(timeout=60)
+        for opt in SIMPLE_OPTS:
+            self.orig.process_file(timeout=timeout, comp_args=[opt])
+            for mutant in self.mutants:
+                mutant.process_file(timeout=timeout, comp_args=[opt])
 
     def save_log(self):
         json.dump(self.log, open(f"{self.case_dir}/log.json", "w"))
@@ -275,8 +264,8 @@ class CaseManager:
         else:
             max_opts = 1
             candidates_GCC = SIMPLE_OPTS
-        if not self.is_infinite_case:
-            candidates_GCC += AGGRESIVE_OPTS
+        # if not self.is_infinite_case:
+        #     candidates_GCC += AGGRESIVE_OPTS
         
         for i in range(nums):
             mutant_file = f"{self.case_dir}/mutant_gcc_{i}.c"
@@ -324,10 +313,10 @@ def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
     if file_class == FileINFO:
         fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
                               fileinfo_dict["global_opts"], fileinfo_dict["args"])
-        fileinfo.res = fileinfo_dict["res"]
+        fileinfo.res_dict = fileinfo_dict["res_dict"]
     else:
         fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
-                              fileinfo_dict["global_opts"], fileinfo_dict["args"], fileinfo_dict["functions"])
-        fileinfo.res = fileinfo_dict["res"]
+                              fileinfo_dict["global_opts"], fileinfo_dict["args"], fileinfo_dict["function_dict"])
+        fileinfo.res = fileinfo_dict["res_dict"]
     return fileinfo
 

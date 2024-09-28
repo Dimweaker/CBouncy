@@ -30,7 +30,7 @@ class Validator:
             return False
         for mutant in self.case.mutants:
             new_mutant = mutant.mutate(mutant_file=mutant.filepath.replace(".c", "_r.c"),
-                                       opt_dict=mutant.functions, code=self.case.orig.text)
+                                       opt_dict=mutant.function_dict, code=self.case.orig.text)
             if new_mutant is None:
                 return False
             new_mutant.process_file(timeout=1)

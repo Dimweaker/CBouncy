@@ -16,7 +16,7 @@ class CodeMutator:
         self.gen_clang = gen_clang
         self.input_buffer = input_buffer
         self.output_buffer = output_buffer
-        self.mutate_processes = [Process(target=self.mutate) for _ in range(1)]
+        self.mutate_processes = [Process(target=self.mutate) for _ in range(5)]
 
     @staticmethod
     def write_to_file(mutant_file_path: str, code: str):
@@ -36,7 +36,6 @@ class CodeMutator:
         while True:
             case = self.input_buffer.get()
             
-            # TODO: for infinite-loops 
             # main mutate
             if self.gen_gcc:
                 case.mutate_GCC(self.mutate_num, self.complex_opts, self.max_opts)

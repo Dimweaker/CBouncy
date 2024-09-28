@@ -12,8 +12,8 @@ class Oracle:
         self.timeout = timeout
         self.input_buffer = input_buffer
 
-        self.oracle_processes = [Process(target=self.test_case) for _ in range(1)] # 5 processes for testing
-
+        self.oracle_processes = [Process(target=self.test_case) for _ in range(15)] 
+        
     def run(self):
         for process in self.oracle_processes:
             process.start()
@@ -23,50 +23,57 @@ class Oracle:
             process.join()
 
     @staticmethod
-    def check_file(file: FileINFO) -> bool:
-        file.process_file(timeout=60)
-        if file.res == COMPILE_TIMEOUT or file.res == COMPILER_CRASHED or file.res == RUNTIME_CRASHED:
-            # report a bug
-            return True
-        elif file.res == RUNTIME_TIMEOUT:
-            results_dict = {opt : file.process_file(timeout=60, comp_args=[opt]) for opt in SIMPLE_OPTS}
-            results = list(results_dict.values)
-            if COMPILE_TIMEOUT in results or COMPILER_CRASHED in results or RUNTIME_CRASHED in results:
-                # report a bug
+    def check_file(file : FileINFO) -> bool:
+        """
+        Returns:
+            bool: True means a bug found
+        """
+        res_dict = file.result_dict
+        for e in [COMPILE_TIMEOUT, COMPILER_CRASHED, RUNTIME_CRASHED]:
+            if e in res_dict.values():
+                # a bug found
                 return True
-            else:
-                results_dict_without_runtime_timeout = dict(filter(lambda x: x[1] != RUNTIME_TIMEOUT, results_dict.items()))
-                if len(results_dict_without_runtime_timeout) == 0:
-                    # consider the file as unhaltable
-                    file.res = RUNTIME_TIMEOUT
-                    return False
-                elif len(results_dict_without_runtime_timeout) > 1:
-                    # checksum diffs, a bug found
+                
+        res_dict_without_RUNTIME_TIMEOUT = \
+            dict(filter(lambda x: x[1] != RUNTIME_TIMEOUT, res_dict.items()))
+        res_num = len(set(res_dict_without_RUNTIME_TIMEOUT.values()))
+        if res_num == 0:
+            file.is_infinite = True # timeout on all opt level
+        if res_num > 1:
+            # a bug found
+            return True
+        return False
+
+    @staticmethod
+    def check_case(case: CaseManager)-> bool:
+        orig = case.orig
+        mutants = case.mutants
+        for opt in SIMPLE_OPTS:
+            orig_res = orig.result_dict[tuple([opt])]
+            for mutant in mutants:
+                mutant_res = mutant.result_dict[tuple([opt])]
+                if orig_res != mutant_res:
+                    # a bug found
                     return True
-                else:
-                    opt, res = list(results_dict_without_runtime_timeout.items())[0]
-                    file.global_opts = opt
-                    file.res = res
         return False
 
     def test_case(self):
         while True:
-            case = self.input_buffer.get()
-            ### single file check
-            # first check orig.c
+            case = self.input_buffer.get()    
+            case.process()
+            
+            # orig file check
             if self.check_file(case.orig):
-                # a bug found, discards all mutants
-                pass
+                self.save_bug(case)
                 continue
             
-            # check mutants
-            for mutant in case.mutants:
-                if self.check_file(mutant):
-                    # a bug found, discards others
-                    pass
-                    continue
-                
-            ### metamorphic check
+            # case check
+            if self.check_case(case):
+                self.save_bug(case)
+                continue
+
+            # no bug found
+            shutil.rmtree(case.case_dir)
 
     @staticmethod
     def save_bug(case: CaseManager):
