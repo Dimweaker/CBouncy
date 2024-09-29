@@ -21,7 +21,7 @@ class ProgramGenerator:
         else:
             self.csmith_args = csmith_args
 
-        self.gen_processes = [Process(target=self.generate_case) for _ in range(15)] # processes for csmith program generating
+        self.gen_processes = [Process(target=self.generate_case) for _ in range(10)] # processes for csmith program generating
 
     def generate_case(self):
         while True:

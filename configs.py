@@ -2,7 +2,6 @@ import os
 import json
 
 UNCOMPILED = "uncompiled"
-COMPILED = "compiled"
 COMPILE_TIMEOUT = "compile timeout"
 COMPILER_CRASHED = "compiler crashed"
 RUNTIME_TIMEOUT = "runtime timeout"

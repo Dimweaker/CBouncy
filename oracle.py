@@ -12,7 +12,7 @@ class Oracle:
         self.timeout = timeout
         self.input_buffer = input_buffer
 
-        self.oracle_processes = [Process(target=self.test_case) for _ in range(15)] 
+        self.oracle_processes = [Process(target=self.test_case) for _ in range(20)] 
         
     def run(self):
         for process in self.oracle_processes:
@@ -49,9 +49,9 @@ class Oracle:
         orig = case.orig
         mutants = case.mutants
         for opt in SIMPLE_OPTS:
-            orig_res = orig.result_dict[tuple([opt])]
+            orig_res = orig.result_dict[opt]
             for mutant in mutants:
-                mutant_res = mutant.result_dict[tuple([opt])]
+                mutant_res = mutant.result_dict[opt]
                 if orig_res != mutant_res:
                     # a bug found
                     return True
@@ -60,7 +60,7 @@ class Oracle:
     def test_case(self):
         while True:
             case = self.input_buffer.get()    
-            case.process()
+            case.process(timeout=10)
             
             # orig file check
             if self.check_file(case.orig):

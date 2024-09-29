@@ -8,7 +8,7 @@ from multiprocessing import Queue
 from shutil import copyfile
 from typing import Type
 
-from configs import (CSMITH_HOME, UNCOMPILED, COMPILED,
+from configs import (CSMITH_HOME, UNCOMPILED, 
                      COMPILE_TIMEOUT, COMPILER_CRASHED,
                      RUNTIME_TIMEOUT, RUNTIME_CRASHED,
                      COMPLEX_OPTS_GCC, SIMPLE_OPTS, AGGRESIVE_OPTS,
@@ -22,7 +22,6 @@ class FileINFO:
 
         :param filepath: should be an absolute path
         :param compiler: compiler used to compile
-        :param global_opts: opt flags appeared in command line
         :param args: other args appeared in the command line for compiling
         
         ## results of a file has five types:
@@ -89,7 +88,6 @@ class FileINFO:
             "basename": self.basename,
             "isMutant": self.is_mutant(),
             "compiler": self.compiler,
-            "global_opts": self.global_opts,
             "args": self.args,
             "res_dict": self.result_dict
         }
@@ -100,6 +98,7 @@ class FileINFO:
 
     def process_file(self, timeout: float = 1, comp_args: list[str] = None) -> str:
         # compile
+        args_str = ' '.join(comp_args)
         if comp_args:
             cmd = list(filter(lambda x: x, self.cmd.split(" ")))+comp_args
         else:
@@ -112,11 +111,10 @@ class FileINFO:
                 res = COMPILER_CRASHED
         except subprocess.TimeoutExpired:
             res = COMPILE_TIMEOUT
-        res = COMPILED
         
         # run
         if res == COMPILE_TIMEOUT or res == COMPILER_CRASHED:
-            self.result_dict.update({tuple(comp_args) : res})
+            self.result_dict.update({args_str : res})
             return res
 
         try:
@@ -130,7 +128,7 @@ class FileINFO:
                 res = process.stdout.decode('utf-8')
         except subprocess.TimeoutExpired:
             res = RUNTIME_TIMEOUT
-        self.result_dict.update({tuple(comp_args) : res})
+        self.result_dict.update({args_str : res})
         return res
 
     def add_opt(self, max_opts : int, opt_cands: list[str]) -> dict[str : list[str]]:
@@ -218,14 +216,17 @@ class MutantFileINFO(FileINFO):
 
 class CaseManager:
     def __init__(self, orig : FileINFO = None):
-        self.case_dir: str = orig.cwd
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
 
-        orig.case = self
+        if orig:
+            orig.case = self
+            self.case_dir: str = orig.cwd
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
+        self.case_dir = orig.cwd
+        orig.case = self
         
     def add_mutant(self, mutant: MutantFileINFO):
         self.mutants.append(mutant)
