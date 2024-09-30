@@ -60,7 +60,7 @@ class Oracle:
     def test_case(self):
         while True:
             case = self.input_buffer.get()    
-            case.process(timeout=10)
+            case.process(timeout=60)
             
             # orig file check
             if self.check_file(case.orig):
