@@ -125,9 +125,8 @@ class FileINFO:
         try:
             process = subprocess.run(f"./{self.exe}", 
                                     stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
                                     cwd=self.cwd, timeout=timeout)
-            if process.stderr.decode('utf-8'):
+            if process.returncode != 0:
                 res = RUNTIME_CRASHED
             else:
                 res = process.stdout.decode('utf-8')

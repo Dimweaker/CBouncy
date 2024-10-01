@@ -67,9 +67,8 @@ def get_file_res_dict(file: str):
         try:
             process = subprocess.run(f"./a.out", 
                                     stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
                                     cwd=os.path.dirname(file), timeout=10)
-            if process.stderr.decode('utf-8'):
+            if process.returncode != 0:
                 res = RUNTIME_CRASHED
             else:
                 res = process.stdout.decode('utf-8')
