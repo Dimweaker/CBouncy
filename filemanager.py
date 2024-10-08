@@ -293,7 +293,7 @@ class CaseManager:
 
         return new_case
 
-    def mutate(self, nums: int , complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
+    def mutate(self, nums: int, complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
         # TODO: mutate based on self.is_infinite_case
         # ? Suggestion: pass a opts tuple to orig.mutate for sampling
         for i in range(nums):
