@@ -34,11 +34,12 @@ class FileINFO:
     def __init__(self, filepath: str, compiler: str = "gcc",
                  global_opts: str = "", args: list[str] = None):
         """
-
-        :param filepath: 要求为一个绝对路径
-        :param compiler:
-        :param global_opts:
-        :param args: 其他参数
+        Args:
+            filepath: The path of the program.
+            compiler: The compiler used to compile this program,
+                such as `gcc` or `llvm`.
+            global_opts: The global options (which are also arguments).
+            args: A list of arguments taken by the compiler.
         """
         self.compiler = compiler
         self.global_opts = global_opts
