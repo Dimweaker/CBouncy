@@ -46,7 +46,7 @@ class FileINFO:
         if args is not None:
             self.args = args
         else:
-            self.args : list[str] = []
+            self.args: list[str] = []
         self.filepath = filepath
         self.res = None
 
@@ -84,7 +84,7 @@ class FileINFO:
             f.close()
         return text
 
-    def copy2dir(self, new_dir : str):
+    def copy2dir(self, new_dir: str):
         copyfile(self.filepath, f"{new_dir}/{self.basename}")
         copied_file = copy.deepcopy(self)
         copied_file.abspath = f"{new_dir}/{self.basename}"
@@ -194,19 +194,19 @@ class MutantFileINFO(FileINFO):
     """
     def __init__(self, filepath: str, compiler: str = "gcc",
                  global_opts: str = "", args: list[str] = None,
-                 functions : dict[str: list[str]] = None):
+                 functions: dict[str: list[str]] = None):
         super().__init__(filepath, compiler, global_opts, args)
         if functions is not None:
             self.functions = functions.copy()
         else:
-            self.functions : dict[str: list[str]] = dict()
+            self.functions: dict[str: list[str]] = dict()
         if not self.global_opts:
             self.global_opts = random.choice(SIMPLE_OPTS)
 
     def is_mutant(self):
         return True
 
-    def add_func_opts(self, function : str, opts : list[str]):
+    def add_func_opts(self, function: str, opts: list[str]):
         self.functions[function] = opts
 
     def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
@@ -252,11 +252,11 @@ class CaseManager:
         mutants: The list of multiple mutants program.
         is_infinite_case: A boolean indicates that [TODO].
     """
-    def __init__(self, orig : FileINFO = None):
+    def __init__(self, orig: FileINFO = None):
         self.case_dir: str = orig.cwd
-        self.orig : FileINFO = orig
-        self.mutants : list[MutantFileINFO] = []
-        self.is_infinite_case : bool = False
+        self.orig: FileINFO = orig
+        self.mutants: list[MutantFileINFO] = []
+        self.is_infinite_case: bool = False
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
@@ -285,7 +285,7 @@ class CaseManager:
     def save_log(self):
         json.dump(self.log, open(f"{self.case_dir}/log.json", "w"))
 
-    def copyfiles(self, new_dir : str):
+    def copyfiles(self, new_dir: str):
         copied_orig = self.orig.copy2dir(new_dir)
         new_case = CaseManager(copied_orig)
         for mutant in self.mutants:
