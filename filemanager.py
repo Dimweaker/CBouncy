@@ -302,6 +302,8 @@ class CaseManager:
 
 
 class CaseBuffer:
+    """A `CaseBuffer` manages a buffer of `CaseManager`.
+    """
     def __init__(self, size: int):
         self.queue = Queue(size)
         
