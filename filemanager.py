@@ -244,6 +244,14 @@ class MutantFileINFO(FileINFO):
 
 
 class CaseManager:
+    """A CaseManager manages one original files and multiple mutant files, where they are under the same directory.
+
+    Attribute:
+        case_dir: The directory of this case.
+        orig: The original program.
+        mutants: The list of multiple mutants program.
+        is_infinite_case: A boolean indicates that [TODO].
+    """
     def __init__(self, orig : FileINFO = None):
         self.case_dir: str = orig.cwd
         self.orig : FileINFO = orig
