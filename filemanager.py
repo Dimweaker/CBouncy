@@ -107,6 +107,8 @@ class FileINFO:
             f.write(code)
 
     def compile_program(self):
+        """Compile the program, and store the result in `self.res` if compilation failed.
+        """
         cmd = list(filter(lambda x: x, self.cmd.split(" ")))
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
         process.communicate()
@@ -114,6 +116,8 @@ class FileINFO:
             self.res = "Compile failed"
 
     def run_program(self, timeout: float = 1):
+        """Run the program if it is compilable, and store the result in `self.res`.
+        """
         if self.res == "Compile failed":
             return
 
