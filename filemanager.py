@@ -265,6 +265,7 @@ class CaseManager:
         self.mutants.append(mutant)
 
     def is_diff(self) -> bool:
+        """Returns False if the results of the original and all mutants programs are the same."""
         results = set()
         results.add(self.orig.res)
         for mutant in self.mutants:
