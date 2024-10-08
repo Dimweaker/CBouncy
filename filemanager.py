@@ -173,6 +173,25 @@ class FileINFO:
 
 
 class MutantFileINFO(FileINFO):
+    """A MutantFileINFO includes all info of a single mutant program file.
+
+    Attributes:
+        filepath: The path of this program.
+        basename: The base name of this program (without path).
+        cwd: The directory of this program.
+        abspath: The *absolute* path of this program, which is 
+            the directory concatenated by the base name.
+        text: The content of this program.
+        compiler: The compiler used to compile this program,
+            such as `gcc` or `llvm`.
+        args: A list of arguments taken by the compiler.
+        global_opts: The global options (which are also arguments).
+        cmd: The command to compile this program.
+        exe: The name of the corresponding executable (e.g. `xxx.out`).
+        res: The result of executing this program, such as
+            `Compile failed`, `Timeout`, etc.
+        fileinfo: A dictionary contains multiple attributes of this program.
+    """
     def __init__(self, filepath: str, compiler: str = "gcc",
                  global_opts: str = "", args: list[str] = None,
                  functions : dict[str: list[str]] = None):
