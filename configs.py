@@ -138,3 +138,6 @@ echo $exit_code > exit_code
 
 exit $exit_code
 """
+
+
+FENCE = '#define FENCE __asm__ __volatile__("" ::: "memory")\n'

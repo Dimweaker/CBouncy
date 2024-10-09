@@ -9,7 +9,7 @@ from shutil import copyfile
 from copy import deepcopy
 from typing import Type
 
-from configs import (CSMITH_HOME, UNCOMPILED, 
+from configs import (CSMITH_HOME, UNCOMPILED, FENCE,
                      COMPILE_TIMEOUT, COMPILER_CRASHED,
                      RUNTIME_TIMEOUT, RUNTIME_CRASHED,
                      COMPLEX_OPTS_GCC, SIMPLE_OPTS, AGGRESIVE_OPTS,
@@ -171,6 +171,16 @@ class FileINFO:
         # 2. generate mutated code 
         code = self.sub_opt(opt_dict, code)
         return code, opt_dict
+
+    def add_fence(self, prob: float = 0.05):
+        code = self.text
+        if FENCE not in code:
+            code = FENCE + code
+        funcs = re.findall(r"func_\d+?\([^;]*?\)\s?{.+?\n\}", code, re.S)
+        for func in funcs:
+            new_func = re.sub(r";\n", lambda _: ";\n" if random.random() > prob else ";\nFENCE;\n", func)
+            code = code.replace(func, new_func)
+        self.write_to_file(code)
 
     def mutate(self, mutant_file: str, max_opts: int, candidate_opts: list[str]):
         code, opt_dict = self.add_opt(max_opts, candidate_opts)
