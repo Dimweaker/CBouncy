@@ -130,10 +130,11 @@ OPT_FORMAT = '__attribute__((optimize("{}")))'
 
 
 SCRIPT = """#!/bin/bash
-cd {}
-python {}/reduce.py {}
-
+cd {} 
+echo $PWD > pwd
+python3 {}/reduce.py {} >> error 
 exit_code=$?
+echo $exit_code > exit_code
 
 exit $exit_code
 """

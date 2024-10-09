@@ -6,6 +6,7 @@ import re
 import subprocess
 from multiprocessing import Queue
 from shutil import copyfile
+from copy import deepcopy
 from typing import Type
 
 from configs import (CSMITH_HOME, UNCOMPILED, 
@@ -43,6 +44,10 @@ class FileINFO:
 
     def is_mutant(self):
         return False
+
+    def set_result_dict(self, res_dict: dict[str : str]):
+        self.result_dict.clear()
+        self.result_dict.update(res_dict)
 
     @property
     def cmd(self) -> str:
@@ -110,7 +115,7 @@ class FileINFO:
                 res = COMPILER_CRASHED
         except subprocess.TimeoutExpired:
             res = COMPILE_TIMEOUT
-        
+        print(1)
         # run
         if res == COMPILE_TIMEOUT or res == COMPILER_CRASHED:
             self.result_dict.update({args_str : res})
@@ -142,13 +147,7 @@ class FileINFO:
             for func in funcs
         }
         # 2. generate mutated code 
-        for key, value in opt_dict.items():
-            opt_str = OPT_FORMAT.format(",".join(value))
-            if key + "(" not in code:
-                return "", opt_dict
-            code = re.sub(rf"({key}\(.*?\)).*?;",
-                          lambda r: f"{r.group(1)} {opt_str};",
-                          code, count=1)
+        code = self.sub_opt(opt_dict, code)
         return code, opt_dict
 
     def mutate(self, mutant_file: str, max_opts: int, candidate_opts: list[str]):
@@ -160,6 +159,15 @@ class FileINFO:
             return mutant
         else:
             return None
+
+    @staticmethod
+    def sub_opt(opt_dict: dict[str : list[str]], code: str) -> str:
+        for key, value in opt_dict.items():
+            opt_str = OPT_FORMAT.format(",".join(value))
+            code = re.sub(rf"({key}\(.*?\)).*?;",
+                          lambda r: f"{r.group(1)} {opt_str};",
+                          code, count=1)
+        return code
 
 
 class MutantFileINFO(FileINFO):
@@ -189,27 +197,34 @@ class MutantFileINFO(FileINFO):
         fileinfo_dict["function_dict"] = self.function_dict
         return fileinfo_dict
 
-    # def reduce_patch(self, timeout: float = 1):
-    #     funcs = self.functions.copy()
-    #     res = self.res
-    #     for func, opts in funcs.items():
-    #         self.functions[func].clear()
-    #         self.mutate(opt_dict=self.functions)
-    #         self.process_file(timeout=timeout)
-    #         if self.res == res:
-    #             print(f"Reduced All options from {func} in {self.basename}")
-    #         else:
-    #             self.functions[func] = opts
-    #             for opt in opts:
-    #                 self.functions[func].remove(opt)
-    #                 self.mutate(opt_dict=self.functions)
-    #                 self.process_file(timeout=timeout)
-    #                 if self.res != res:
-    #                     self.functions[func].append(opt)
-    #                 else:
-    #                     print(f"Reduced {opt} from {func} in {self.basename}")
-    #     self.mutate(opt_dict=self.functions)
-    #     self.process_file(timeout=timeout)
+    def reduce_patch(self, timeout: float = 1):
+        funcs = deepcopy(self.function_dict)
+        res = self.result_dict.copy()
+
+        for func, opts in funcs.items():
+            # 首先尝试删除所有选项
+            self.function_dict[func].clear()
+            text = self.sub_opt(self.function_dict, self.text)
+            self.write_to_file(text)
+            for glob_opt in SIMPLE_OPTS:
+                self.process_file(timeout=timeout, comp_args=[glob_opt])
+
+            if all(res[glob_opt] == self.result_dict[glob_opt] for glob_opt in res.keys()):
+                print(f"Reduced All options from {func} in {self.basename}")
+            else:
+                self.function_dict[func] = opts.copy()
+                for opt in opts:
+                    self.function_dict[func].remove(opt)
+                    text = self.sub_opt(self.function_dict, self.text)
+                    self.write_to_file(text)
+                    for glob_opt in SIMPLE_OPTS:
+                        self.process_file(timeout=timeout, comp_args=[glob_opt])
+                    if not all(res[glob_opt] == self.result_dict[glob_opt] for glob_opt in res.keys()):
+                        self.function_dict[func].append(opt)
+                    else:
+                        print(f"Reduced {opt} from {func} in {self.basename}")
+        text = self.sub_opt(self.function_dict, self.text)
+        self.write_to_file(text)
 
 
 class CaseManager:
@@ -228,12 +243,12 @@ class CaseManager:
         self.mutants.append(mutant)
         mutant.case = self
 
-    def is_diff(self) -> bool:
-        results = set()
-        results.add(self.orig.res)
-        for mutant in self.mutants:
-            results.add(mutant.res)
-        return len(results) != 1
+    # def is_diff(self) -> bool:
+    #     results = set()
+    #     results.add(self.orig.res)
+    #     for mutant in self.mutants:
+    #         results.add(mutant.res)
+    #     return len(results) != 1
 
     def process(self, timeout: float = 1):
         for opt in SIMPLE_OPTS:
@@ -294,26 +309,26 @@ def create_case_from_log(log: dict | str) -> CaseManager:
     if isinstance(log, str):
         log = json.load(open(log, "r"))
 
-    orig = create_fileinfo_from_dict(log["case_dir"], log["orig"], FileINFO)
+    orig = create_fileinfo_from_dict(log["case_dir"], log["orig"])
 
     case = CaseManager(orig)
 
     for mutant_info in log["mutants"]:
-        mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info, MutantFileINFO)
+        mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info)
         case.add_mutant(mutant)
 
     return case
 
-def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
-                                       file_class: FileINFO | MutantFileINFO )\
-                                                -> [FileINFO , MutantFileINFO]:
-    if file_class == FileINFO:
-        fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
-                              fileinfo_dict["global_opts"], fileinfo_dict["args"])
-        fileinfo.res_dict = fileinfo_dict["res_dict"]
+def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict)\
+                                                -> [FileINFO | MutantFileINFO]:
+    if fileinfo_dict["isMutant"]:
+        file = MutantFileINFO(f"{case_dir}/{fileinfo_dict['basename']}",
+                              fileinfo_dict["compiler"], fileinfo_dict["args"],
+                              fileinfo_dict["function_dict"])
+        file.set_result_dict(fileinfo_dict["res_dict"])
     else:
-        fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
-                              fileinfo_dict["global_opts"], fileinfo_dict["args"], fileinfo_dict["function_dict"])
-        fileinfo.res = fileinfo_dict["res_dict"]
-    return fileinfo
+        file = FileINFO(f"{case_dir}/{fileinfo_dict['basename']}",
+                        fileinfo_dict["compiler"], fileinfo_dict["args"])
+        file.set_result_dict(fileinfo_dict["res_dict"])
 
+    return file
