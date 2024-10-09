@@ -2,7 +2,6 @@ import random
 import re
 from multiprocessing import Process
 
-from configs import SIMPLE_OPTS, COMPLEX_OPTS_GCC, PREFIX_TEXT, SUFFIX_TEXT, OPT_FORMAT
 from filemanager import *
 
 
@@ -17,7 +16,7 @@ class CodeMutator:
         self.gen_clang = gen_clang
         self.input_buffer = input_buffer
         self.output_buffer = output_buffer
-        self.mutate_processes = [Process(target=self.mutate) for _ in range(2)]
+        self.mutate_processes = [Process(target=self.mutate) for _ in range(5)]
 
     @staticmethod
     def write_to_file(mutant_file_path: str, code: str):
@@ -38,6 +37,9 @@ class CodeMutator:
             case = self.input_buffer.get()
             
             # main mutate
-            case.mutate(self.mutate_num, self.complex_opts, self.max_opts)
+            if self.gen_gcc:
+                case.mutate_GCC(self.mutate_num, self.complex_opts, self.max_opts)
+            if self.gen_clang:
+                pass
             
             self.output_buffer.push(case)

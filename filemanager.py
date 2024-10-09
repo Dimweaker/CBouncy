@@ -6,9 +6,14 @@ import re
 import subprocess
 from multiprocessing import Queue
 from shutil import copyfile
+from copy import deepcopy
 from typing import Type
 
-from configs import CSMITH_HOME, COMPLEX_OPTS_GCC, SIMPLE_OPTS, OPT_FORMAT, PREFIX_TEXT, SUFFIX_TEXT
+from configs import (CSMITH_HOME, UNCOMPILED, 
+                     COMPILE_TIMEOUT, COMPILER_CRASHED,
+                     RUNTIME_TIMEOUT, RUNTIME_CRASHED,
+                     COMPLEX_OPTS_GCC, SIMPLE_OPTS, AGGRESIVE_OPTS,
+                     OPT_FORMAT, PREFIX_TEXT, SUFFIX_TEXT)
 
 
 class FileINFO:
@@ -32,34 +37,45 @@ class FileINFO:
         fileinfo: A dictionary contains multiple attributes of this program.
     """
     def __init__(self, filepath: str, compiler: str = "gcc",
-                 global_opts: str = "", args: list[str] = None):
+                 args: list[str] = None):
         """
         Args:
             filepath: The path of the program.
             compiler: The compiler used to compile this program,
                 such as `gcc` or `llvm`.
-            global_opts: The global options (which are also arguments).
             args: A list of arguments taken by the compiler.
+        
+        ## results of a file has five types:
+            1. compile timeout
+            2. compiler crashed
+            3. runtime timeout
+            4. runtime crashed
+            5. checksum=xxx     ( program successfully compiled and halted )
         """
-        self.compiler = compiler
-        self.global_opts = global_opts
+        self.compiler : str = compiler
         if args is not None:
             self.args = args
         else:
             self.args: list[str] = []
         self.filepath = filepath
-        self.res = None
+        self.result_dict = dict()
+        self.is_infinite = False
+
 
     def is_mutant(self):
         return False
 
+    def set_result_dict(self, res_dict: dict[str : str]):
+        self.result_dict.clear()
+        self.result_dict.update(res_dict)
+
     @property
     def cmd(self) -> str:
-        return f"{self.compiler} {self.abspath} -I{CSMITH_HOME}/include -w {self.global_opts} {' '.join(self.args)} -o {self.exe}".strip()
+        return f"{self.compiler} {self.abspath} -I{CSMITH_HOME}/include -w {' '.join(self.args)} -o {self.exe}".strip()
 
     @property
     def exe(self) -> str:
-        return f"{self.basename.rstrip('.c')}_gcc.out"
+        return f"{self.basename.rstrip('.c')}_{self.compiler}.out"
 
     @property
     def basename(self) -> str:
@@ -90,86 +106,90 @@ class FileINFO:
         copied_file.abspath = f"{new_dir}/{self.basename}"
         return copied_file
 
-
     @property
     def fileinfo(self) -> dict:
         return {
             "basename": self.basename,
             "isMutant": self.is_mutant(),
             "compiler": self.compiler,
-            "global_opts": self.global_opts,
             "args": self.args,
-            "res": self.res
+            "res_dict": self.result_dict
         }
 
     def write_to_file(self, code: str):
         with open(self.filepath, "w") as f:
             f.write(code)
 
-    def compile_program(self):
-        """Compile the program, and store the result in `self.res` if compilation failed.
-        """
-        cmd = list(filter(lambda x: x, self.cmd.split(" ")))
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
-        process.communicate()
-        if process.returncode != 0:
-            self.res = "Compile failed"
 
-    def run_program(self, timeout: float = 1):
-        """Run the program if it is compilable, and store the result in `self.res`.
-        """
-        if self.res == "Compile failed":
-            return
+    def process_file(self, timeout: float = 1, comp_args: list[str] = None) -> str:
+        # compile
+        args_str = ' '.join(comp_args)
+        if comp_args:
+            cmd = list(filter(lambda x: x, self.cmd.split(" ")))+comp_args
+        else:
+            cmd = list(filter(lambda x: x, self.cmd.split(" ")))
+        res = UNCOMPILED
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
 
         try:
-            result = subprocess.run(f"./{self.exe}", stdout=subprocess.PIPE,
-                                    cwd=self.cwd, timeout=timeout)
-            self.res = result.stdout.decode("utf-8")
+            process.communicate(timeout=180)
+            if process.returncode != 0:
+                res = COMPILER_CRASHED
         except subprocess.TimeoutExpired:
-            self.res = "Timeout"
+            res = COMPILE_TIMEOUT
+        print(1)
+        # run
+        if res == COMPILE_TIMEOUT or res == COMPILER_CRASHED:
+            self.result_dict.update({args_str : res})
+            return res
 
-    def process_file(self, timeout: float = 1):
-        self.compile_program()
-        self.run_program(timeout=timeout)
-
-    def add_opt(self, complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
-        if code:
-            raw_code = code
-        else:
-            raw_code = self.text
-        if opt_dict is None:
-            declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", raw_code, re.S)
-            declaration_scope = declaration_scope.group() if declaration_scope else ""
-            functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
-            funcs = [re.search(rf"(\S*)\(.*\).*?;", func).group(1) for func in functions]
-            if complex_opts:
-                opt_dict = {
-                    func:
-                        random.sample(COMPLEX_OPTS_GCC, random.randint(1, max_opts))
-                    for func in funcs
-                }
+        try:
+            process = subprocess.run(f"./{self.exe}", 
+                                    stdout=subprocess.PIPE,
+                                    cwd=self.cwd, timeout=timeout)
+            if process.returncode != 0:
+                res = RUNTIME_CRASHED
             else:
-                opt_dict = {func: [random.choice(SIMPLE_OPTS)] for func in funcs}
-        code = raw_code
-        for key, value in opt_dict.items():
-            opt_str = OPT_FORMAT.format(",".join(value) if complex_opts else value[0]) if value else ""
-            if key + "(" not in code and value:
-                return "", opt_dict
-            code = re.sub(rf"({key}\(.*?\)).*?;",
-                          lambda r: f"{r.group(1)} {opt_str};",
-                          code, count=1)
+                res = process.stdout.decode('utf-8')
+        except subprocess.TimeoutExpired:
+            res = RUNTIME_TIMEOUT
+        self.result_dict.update({args_str : res})
+        return res
 
+    def add_opt(self, max_opts : int, opt_cands: list[str]) -> dict[str : list[str]]:
+        code = self.text
+        # 1. grep function decls and add opt flags for each
+        declaration_scope = re.search(rf"{PREFIX_TEXT}(.+?){SUFFIX_TEXT}", code, re.S)
+        declaration_scope = declaration_scope.group() if declaration_scope else ""
+        functions = re.findall(rf"\n(.+?;)", declaration_scope, re.S)
+        funcs = [re.search(rf"(\S*)\(.*\).*?;", func).group(1) for func in functions]
+        opt_dict = {
+            func:
+                random.sample(opt_cands, random.randint(1, max_opts))
+            for func in funcs
+        }
+        # 2. generate mutated code 
+        code = self.sub_opt(opt_dict, code)
         return code, opt_dict
 
-    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
-        code, opt_dict = self.add_opt(complex_opts, max_opts, opt_dict, code)
+    def mutate(self, mutant_file: str, max_opts: int, candidate_opts: list[str]):
+        code, opt_dict = self.add_opt(max_opts, candidate_opts)
 
         if code:
-            mutant = MutantFileINFO(mutant_file, self.compiler, self.global_opts, self.args, opt_dict)
+            mutant = MutantFileINFO(mutant_file, self.compiler, self.args, opt_dict)
             mutant.write_to_file(code)
             return mutant
         else:
             return None
+
+    @staticmethod
+    def sub_opt(opt_dict: dict[str : list[str]], code: str) -> str:
+        for key, value in opt_dict.items():
+            opt_str = OPT_FORMAT.format(",".join(value))
+            code = re.sub(rf"({key}\(.*?\)).*?;",
+                          lambda r: f"{r.group(1)} {opt_str};",
+                          code, count=1)
+        return code
 
 
 class MutantFileINFO(FileINFO):
@@ -193,54 +213,59 @@ class MutantFileINFO(FileINFO):
         fileinfo: A dictionary contains multiple attributes of this program.
     """
     def __init__(self, filepath: str, compiler: str = "gcc",
-                 global_opts: str = "", args: list[str] = None,
-                 functions: dict[str: list[str]] = None):
-        super().__init__(filepath, compiler, global_opts, args)
-        if functions is not None:
-            self.functions = functions.copy()
+                 args: list[str] = None,
+                 function_dict : dict[str: list[str]] = None):
+        super().__init__(filepath, compiler, args)
+        if function_dict is not None:
+            self.function_dict = function_dict.copy()
         else:
-            self.functions: dict[str: list[str]] = dict()
-        if not self.global_opts:
-            self.global_opts = random.choice(SIMPLE_OPTS)
+            self.function_dict : dict[str: list[str]] = dict()
 
     def is_mutant(self):
         return True
 
     def add_func_opts(self, function: str, opts: list[str]):
-        self.functions[function] = opts
+        self.function_dict[function] = opts
 
-    def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
-        code, _ = self.add_opt(opt_dict=self.functions, code=code)
-        self.write_to_file(code)
-        return self
+    # def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
+    #     code, _ = self.add_opt(opt_dict=self.functions, code=code)
+    #     self.write_to_file(code)
+    #     return self
 
     @property
     def fileinfo(self) -> dict:
         fileinfo_dict = super().fileinfo
-        fileinfo_dict["functions"] = self.functions
+        fileinfo_dict["function_dict"] = self.function_dict
         return fileinfo_dict
 
     def reduce_patch(self, timeout: float = 1):
-        funcs = self.functions.copy()
-        res = self.res
+        funcs = deepcopy(self.function_dict)
+        res = self.result_dict.copy()
+
         for func, opts in funcs.items():
-            self.functions[func].clear()
-            self.mutate(opt_dict=self.functions)
-            self.process_file(timeout=timeout)
-            if self.res == res:
+            # 首先尝试删除所有选项
+            self.function_dict[func].clear()
+            text = self.sub_opt(self.function_dict, self.text)
+            self.write_to_file(text)
+            for glob_opt in SIMPLE_OPTS:
+                self.process_file(timeout=timeout, comp_args=[glob_opt])
+
+            if all(res[glob_opt] == self.result_dict[glob_opt] for glob_opt in res.keys()):
                 print(f"Reduced All options from {func} in {self.basename}")
             else:
-                self.functions[func] = opts
+                self.function_dict[func] = opts.copy()
                 for opt in opts:
-                    self.functions[func].remove(opt)
-                    self.mutate(opt_dict=self.functions)
-                    self.process_file(timeout=timeout)
-                    if self.res != res:
-                        self.functions[func].append(opt)
+                    self.function_dict[func].remove(opt)
+                    text = self.sub_opt(self.function_dict, self.text)
+                    self.write_to_file(text)
+                    for glob_opt in SIMPLE_OPTS:
+                        self.process_file(timeout=timeout, comp_args=[glob_opt])
+                    if not all(res[glob_opt] == self.result_dict[glob_opt] for glob_opt in res.keys()):
+                        self.function_dict[func].append(opt)
                     else:
                         print(f"Reduced {opt} from {func} in {self.basename}")
-        self.mutate(opt_dict=self.functions)
-        self.process_file(timeout=timeout)
+        text = self.sub_opt(self.function_dict, self.text)
+        self.write_to_file(text)
 
 
 class CaseManager:
@@ -250,37 +275,34 @@ class CaseManager:
         case_dir: The directory of this case.
         orig: The original program.
         mutants: The list of multiple mutants program.
-        is_infinite_case: A boolean indicates that [TODO].
     """
-    def __init__(self, orig: FileINFO = None):
-        self.case_dir: str = orig.cwd
-        self.orig: FileINFO = orig
-        self.mutants: list[MutantFileINFO] = []
-        self.is_infinite_case: bool = False
+    def __init__(self, orig : FileINFO = None):
+        self.orig : FileINFO = orig
+        self.mutants : list[MutantFileINFO] = []
+
+        if orig:
+            self.case_dir: str = orig.cwd
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
+        self.case_dir = orig.cwd
         
     def add_mutant(self, mutant: MutantFileINFO):
         self.mutants.append(mutant)
+        mutant.case = self
 
-    def is_diff(self) -> bool:
-        """Returns False if the results of the original and all mutants programs are the same."""
-        results = set()
-        results.add(self.orig.res)
-        for mutant in self.mutants:
-            results.add(mutant.res)
-        return len(results) != 1
+    # def is_diff(self) -> bool:
+    #     results = set()
+    #     results.add(self.orig.res)
+    #     for mutant in self.mutants:
+    #         results.add(mutant.res)
+    #     return len(results) != 1
 
     def process(self, timeout: float = 1):
-        self.orig.process_file(timeout=timeout)
-        for mutant in self.mutants:
-            mutant.process_file(timeout=timeout)
-
-    def recheck(self):
-        self.orig.run_program(timeout=60)
-        for mutant in self.mutants:
-            mutant.run_program(timeout=60)
+        for opt in SIMPLE_OPTS:
+            self.orig.process_file(timeout=timeout, comp_args=[opt])
+            for mutant in self.mutants:
+                mutant.process_file(timeout=timeout, comp_args=[opt])
 
     def save_log(self):
         json.dump(self.log, open(f"{self.case_dir}/log.json", "w"))
@@ -293,12 +315,21 @@ class CaseManager:
 
         return new_case
 
-    def mutate(self, nums: int, complex_opts: bool = False, max_opts: int = 35, opt_dict=None):
+    def mutate_GCC(self, nums: int , complex_opts: bool = False, max_opts: int = 35):
         # TODO: mutate based on self.is_infinite_case
         # ? Suggestion: pass a opts tuple to orig.mutate for sampling
+        # generate candidate opts and max_opts
+        if complex_opts:
+            candidates_GCC = COMPLEX_OPTS_GCC
+        else:
+            max_opts = 1
+            candidates_GCC = SIMPLE_OPTS
+        # if not self.is_infinite_case:
+        #     candidates_GCC += AGGRESIVE_OPTS
+        
         for i in range(nums):
-            mutant_file = f"{self.case_dir}/mutant_{i}.c"
-            mutant = self.orig.mutate(mutant_file, complex_opts, max_opts, opt_dict)
+            mutant_file = f"{self.case_dir}/mutant_gcc_{i}.c"
+            mutant = self.orig.mutate(mutant_file, max_opts, candidates_GCC)
             self.add_mutant(mutant)
 
     @property
@@ -328,22 +359,27 @@ def create_case_from_log(log: dict | str) -> CaseManager:
     if isinstance(log, str):
         log = json.load(open(log, "r"))
 
-    orig = create_fileinfo_from_dict(log["case_dir"], log["orig"], FileINFO)
+    orig = create_fileinfo_from_dict(log["case_dir"], log["orig"])
 
     case = CaseManager(orig)
 
     for mutant_info in log["mutants"]:
-        mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info, MutantFileINFO)
+        mutant = create_fileinfo_from_dict(log["case_dir"], mutant_info)
         case.add_mutant(mutant)
 
     return case
 
-def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict,
-                                       file_class: Type[FileINFO] | Type[MutantFileINFO]) \
+
+def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict)\
                                                 -> FileINFO | MutantFileINFO:
+    if fileinfo_dict["isMutant"]:
+        file = MutantFileINFO(f"{case_dir}/{fileinfo_dict['basename']}",
+                              fileinfo_dict["compiler"], fileinfo_dict["args"],
+                              fileinfo_dict["function_dict"])
+        file.set_result_dict(fileinfo_dict["res_dict"])
+    else:
+        file = FileINFO(f"{case_dir}/{fileinfo_dict['basename']}",
+                        fileinfo_dict["compiler"], fileinfo_dict["args"])
+        file.set_result_dict(fileinfo_dict["res_dict"])
 
-    fileinfo = file_class(f"{case_dir}/{fileinfo_dict['basename']}", fileinfo_dict["compiler"],
-                            fileinfo_dict["global_opts"], fileinfo_dict["args"])
-    fileinfo.res = fileinfo_dict["res"]
-    return fileinfo
-
+    return file

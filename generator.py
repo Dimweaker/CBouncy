@@ -1,6 +1,7 @@
 import os
 import subprocess
 from multiprocessing import Process, Value
+import shutil
 
 from filemanager import CaseBuffer, CaseManager, FileINFO
 from configs import CSMITH_HOME
@@ -20,7 +21,7 @@ class ProgramGenerator:
         else:
             self.csmith_args = csmith_args
 
-        self.gen_processes = [Process(target=self.generate_case) for _ in range(15)] # processes for csmith program generating
+        self.gen_processes = [Process(target=self.generate_case) for _ in range(10)] # processes for csmith program generating
 
     def generate_case(self):
         while True:
@@ -42,8 +43,8 @@ class ProgramGenerator:
                 f.write(orig_program)
                 f.close()
 
-            case = CaseManager(FileINFO(os.path.join(test_dir, "orig.c")))
-            # TODO: inline mutate step
+            orig = FileINFO(os.path.join(test_dir, "orig.c"))
+            case = CaseManager(orig)
             self.output_buffer.push(case)
 
     def run(self):

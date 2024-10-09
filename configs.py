@@ -1,6 +1,12 @@
 import os
 import json
 
+UNCOMPILED = "uncompiled"
+COMPILE_TIMEOUT = "compile timeout"
+COMPILER_CRASHED = "compiler crashed"
+RUNTIME_TIMEOUT = "runtime timeout"
+RUNTIME_CRASHED = "runtime crashed"
+
 with open("config.json", "r") as f:
     MAIL_CONFIG = json.load(f)
 
@@ -124,10 +130,11 @@ OPT_FORMAT = '__attribute__((optimize("{}")))'
 
 
 SCRIPT = """#!/bin/bash
-cd {}
-python {}/reduce.py {}
-
+cd {} 
+echo $PWD > pwd
+python3 {}/reduce.py {} >> error 
 exit_code=$?
+echo $exit_code > exit_code
 
 exit $exit_code
 """
