@@ -40,7 +40,6 @@ class FileINFO:
         self.result_dict = dict()
         self.is_infinite = False
 
-        self.case : CaseManager = None
 
     def is_mutant(self):
         return False
@@ -106,7 +105,7 @@ class FileINFO:
         res = UNCOMPILED
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
         try:
-            process.communicate(timeout=60)
+            process.communicate(timeout=180)
             if process.returncode != 0:
                 res = COMPILER_CRASHED
         except subprocess.TimeoutExpired:
@@ -219,13 +218,11 @@ class CaseManager:
         self.mutants : list[MutantFileINFO] = []
 
         if orig:
-            orig.case = self
             self.case_dir: str = orig.cwd
 
     def reset_orig(self, orig: FileINFO):
         self.orig = orig
         self.case_dir = orig.cwd
-        orig.case = self
         
     def add_mutant(self, mutant: MutantFileINFO):
         self.mutants.append(mutant)
