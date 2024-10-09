@@ -1,7 +1,13 @@
 import subprocess
 import shutil
 import smtplib
+import os
 from email.message import EmailMessage
+
+from filemanager import FileINFO, MutantFileINFO, CaseManager
+from configs import (SIMPLE_OPTS, CSMITH_HOME, UNCOMPILED,
+                     COMPILE_TIMEOUT, COMPILER_CRASHED,
+                     RUNTIME_CRASHED, RUNTIME_TIMEOUT)
 
 def send_mail(config: dict, subject: str, content: str, attachment: str = None):
     message = EmailMessage()
@@ -20,17 +26,6 @@ def send_mail(config: dict, subject: str, content: str, attachment: str = None):
 
 def zip_dir(dir_path: str, zip_path: str):
     shutil.make_archive(zip_path, 'zip', dir_path)
-
-def infinite_check(file: str) -> bool:
-    """a function using a static analyzer to check if function contains dead loops
-
-    Args:
-        file (str): a valid path to C file
-    
-    Return:
-        bool : True if analyzer detects no dead loops
-    """
-    pass
 
 def compile_file(cmd: list, cwd: str=None)-> str:
     """compile a program to execution file
@@ -52,3 +47,48 @@ def compile_file(cmd: list, cwd: str=None)-> str:
         else:
             return "Compile failed"
     return "Compile success"
+
+def get_file_res_dict(file: str):
+    res_dict = {}
+    for opt in SIMPLE_OPTS:
+        res = UNCOMPILED
+        cmd = ["gcc", opt, file, f"-I{CSMITH_HOME}/include", "-w"]
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=os.path.dirname(file))
+        try:
+            process.communicate(timeout=60)
+            if process.returncode != 0:
+                res = COMPILER_CRASHED
+        except subprocess.TimeoutExpired:
+            res = COMPILE_TIMEOUT
+        # run
+        if res == COMPILE_TIMEOUT or res == COMPILER_CRASHED:
+            res_dict.update({opt : res})
+            return res
+        try:
+            process = subprocess.run(f"./a.out", 
+                                    stdout=subprocess.PIPE,
+                                    cwd=os.path.dirname(file), timeout=10)
+            if process.returncode != 0:
+                res = RUNTIME_CRASHED
+            else:
+                res = process.stdout.decode('utf-8')
+        except subprocess.TimeoutExpired:
+            res = RUNTIME_TIMEOUT
+        res_dict.update({opt : res})
+    return res_dict
+
+def create_log_from_dir(case_dir : str):
+    case = CaseManager()
+    for root, _, files in os.walk(case_dir):
+        for file in files:
+            if not file.endswith('.c'):
+                continue
+            abs_path = os.path.join(root, file)
+            if file=='orig.c':
+                orig_info = FileINFO(abs_path)
+                case.reset_orig(orig_info)
+            else:
+                mutant_file = MutantFileINFO(abs_path)
+                case.add_mutant(mutant_file)
+    case.process(timeout=20)
+    case.save_log()

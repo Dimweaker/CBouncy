@@ -16,13 +16,21 @@ class Validator:
         self.reduce_dir = reduce_dir
 
     def apply_transformation(self):
+        """apply transformation on orig.c to all mutant
+
+        procedure:
+            1. process orig.c
+                - if new result doesn't match original result, return False
+        Returns:
+            True:
+        """
         res = self.case.orig.res
         self.case.orig.process_file(timeout=1)
         if self.case.orig.res != res:
             return False
         for mutant in self.case.mutants:
             new_mutant = mutant.mutate(mutant_file=mutant.filepath.replace(".c", "_r.c"),
-                                       opt_dict=mutant.functions, code=self.case.orig.text)
+                                       opt_dict=mutant.function_dict, code=self.case.orig.text)
             if new_mutant is None:
                 return False
             new_mutant.process_file(timeout=1)
@@ -35,6 +43,4 @@ if __name__ == "__main__":
     reduce_dir = sys.argv[1]
     validator = Validator(reduce_dir)
     flag = validator.apply_transformation()
-    with open(f"{reduce_dir}/flag", "a") as f:
-        f.write("0" if flag else "1")
     exit(0 if flag else 1)
