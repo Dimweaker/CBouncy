@@ -17,13 +17,33 @@ from configs import (CSMITH_HOME, UNCOMPILED,
 
 
 class FileINFO:
+    """A FileINFO includes all info of a single program file.
+
+    Attributes:
+        filepath: The path of this program.
+        basename: The base name of this program (without path).
+        cwd: The directory of this program.
+        abspath: The *absolute* path of this program, which is 
+            the directory concatenated by the base name.
+        text: The content of this program.
+        compiler: The compiler used to compile this program,
+            such as `gcc` or `llvm`.
+        args: A list of arguments taken by the compiler.
+        global_opts: The global options (which are also arguments).
+        cmd: The command to compile this program.
+        exe: The name of the corresponding executable (e.g. `xxx.out`).
+        res: The result of executing this program, such as
+            `Compile failed`, `Timeout`, etc.
+        fileinfo: A dictionary contains multiple attributes of this program.
+    """
     def __init__(self, filepath: str, compiler: str = "gcc",
                  args: list[str] = None):
         """
-
-        :param filepath: should be an absolute path
-        :param compiler: compiler used to compile
-        :param args: other args appeared in the command line for compiling
+        Args:
+            filepath: The path of the program.
+            compiler: The compiler used to compile this program,
+                such as `gcc` or `llvm`.
+            args: A list of arguments taken by the compiler.
         
         ## results of a file has five types:
             1. compile timeout
@@ -36,7 +56,7 @@ class FileINFO:
         if args is not None:
             self.args = args
         else:
-            self.args : list[str] = []
+            self.args: list[str] = []
         self.filepath = filepath
         self.result_dict = dict()
         self.is_infinite = False
@@ -80,7 +100,7 @@ class FileINFO:
             f.close()
         return text
 
-    def copy2dir(self, new_dir : str):
+    def copy2dir(self, new_dir: str):
         copyfile(self.filepath, f"{new_dir}/{self.basename}")
         copied_file = copy.deepcopy(self)
         copied_file.abspath = f"{new_dir}/{self.basename}"
@@ -100,6 +120,7 @@ class FileINFO:
         with open(self.filepath, "w") as f:
             f.write(code)
 
+
     def process_file(self, timeout: float = 1, comp_args: list[str] = None) -> str:
         # compile
         args_str = ' '.join(comp_args)
@@ -109,6 +130,7 @@ class FileINFO:
             cmd = list(filter(lambda x: x, self.cmd.split(" ")))
         res = UNCOMPILED
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=self.cwd)
+
         try:
             process.communicate(timeout=180)
             if process.returncode != 0:
@@ -171,6 +193,25 @@ class FileINFO:
 
 
 class MutantFileINFO(FileINFO):
+    """A MutantFileINFO includes all info of a single mutant program file.
+
+    Attributes:
+        filepath: The path of this program.
+        basename: The base name of this program (without path).
+        cwd: The directory of this program.
+        abspath: The *absolute* path of this program, which is 
+            the directory concatenated by the base name.
+        text: The content of this program.
+        compiler: The compiler used to compile this program,
+            such as `gcc` or `llvm`.
+        args: A list of arguments taken by the compiler.
+        global_opts: The global options (which are also arguments).
+        cmd: The command to compile this program.
+        exe: The name of the corresponding executable (e.g. `xxx.out`).
+        res: The result of executing this program, such as
+            `Compile failed`, `Timeout`, etc.
+        fileinfo: A dictionary contains multiple attributes of this program.
+    """
     def __init__(self, filepath: str, compiler: str = "gcc",
                  args: list[str] = None,
                  function_dict : dict[str: list[str]] = None):
@@ -183,7 +224,7 @@ class MutantFileINFO(FileINFO):
     def is_mutant(self):
         return True
 
-    def add_func_opts(self, function : str, opts : list[str]):
+    def add_func_opts(self, function: str, opts: list[str]):
         self.function_dict[function] = opts
 
     # def mutate(self, mutant_file: str = "", complex_opts: bool = False, max_opts: int = 35, opt_dict=None, code: str = ""):
@@ -228,6 +269,13 @@ class MutantFileINFO(FileINFO):
 
 
 class CaseManager:
+    """A CaseManager manages one original files and multiple mutant files, where they are under the same directory.
+
+    Attribute:
+        case_dir: The directory of this case.
+        orig: The original program.
+        mutants: The list of multiple mutants program.
+    """
     def __init__(self, orig : FileINFO = None):
         self.orig : FileINFO = orig
         self.mutants : list[MutantFileINFO] = []
@@ -259,7 +307,7 @@ class CaseManager:
     def save_log(self):
         json.dump(self.log, open(f"{self.case_dir}/log.json", "w"))
 
-    def copyfiles(self, new_dir : str):
+    def copyfiles(self, new_dir: str):
         copied_orig = self.orig.copy2dir(new_dir)
         new_case = CaseManager(copied_orig)
         for mutant in self.mutants:
@@ -294,6 +342,8 @@ class CaseManager:
 
 
 class CaseBuffer:
+    """A `CaseBuffer` manages a buffer of `CaseManager`.
+    """
     def __init__(self, size: int):
         self.queue = Queue(size)
         
@@ -319,8 +369,9 @@ def create_case_from_log(log: dict | str) -> CaseManager:
 
     return case
 
+
 def create_fileinfo_from_dict(case_dir: str, fileinfo_dict: dict)\
-                                                -> [FileINFO | MutantFileINFO]:
+                                                -> FileINFO | MutantFileINFO:
     if fileinfo_dict["isMutant"]:
         file = MutantFileINFO(f"{case_dir}/{fileinfo_dict['basename']}",
                               fileinfo_dict["compiler"], fileinfo_dict["args"],
