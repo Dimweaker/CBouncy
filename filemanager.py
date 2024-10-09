@@ -340,6 +340,7 @@ class CaseManager:
         for i in range(nums):
             mutant_file = f"{self.case_dir}/mutant_gcc_{i}.c"
             mutant = self.orig.mutate(mutant_file, max_opts, candidates_GCC)
+            mutant.add_fence()
             self.add_mutant(mutant)
 
     @property
