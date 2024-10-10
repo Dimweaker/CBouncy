@@ -9,7 +9,8 @@
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "llvm/Support/raw_ostream.h"
+
+#include "RewriteUtils.h"
 
 using namespace clang;
 using namespace llvm;
@@ -19,43 +20,24 @@ AddVarASTConsumer *consumer;
 
 class AddVarASTVisitor : public RecursiveASTVisitor<AddVarASTVisitor> {
   public:
-    AddVarASTVisitor(Rewriter &Prewriter):rewriter(&Prewriter)  {}
+    AddVarASTVisitor() {}
 
-    bool VisitVarDecl(VarDecl *vd) {
+    bool VisitVarDecl(VarDecl *VD) {
         // if global
-        if (vd->hasGlobalStorage()) {
-            std::string vartype = vd->getType().getAsString();
-            std::string varname = vd->getNameAsString();
-
-            // get Loc after semi
-            SourceLocation VDEndLoc = vd->getEndLoc();
-            SourceManager &mgr = rewriter->getSourceMgr();
-            const char *buf = mgr.getCharacterData(VDEndLoc);
-            int offset = 0;
-            while (*buf != ';') {
-                buf++;
-                if(*buf == '\0') break;
-                offset++;
-            }
-            offset++;
-            VDEndLoc = VDEndLoc.getLocWithOffset(offset);
-            rewriter->InsertText(VDEndLoc, "\n" + vartype + "* " + "b=&" + varname+";");
+        if (VD->hasGlobalStorage()) {
+            std::string vartype = VD->getType().getAsString(),
+                        varname = VD->getNameAsString();
+            std::string insertstr = 
+                vartype + " *"+ varname +"_proxy = &"+varname + ";"; 
+            RewriteUtils::getInstance()->addStringAfterVarDecl(VD, insertstr);
         }
         return true;
     }
-
-  private:
-    Rewriter *rewriter;
 };
 
 class AddVarASTConsumer : public ASTConsumer {
   public:
-    AddVarASTConsumer(Rewriter &rewriter): visitor(rewriter), mgr(nullptr) {}
-
-    void setMgr(SourceManager *Pmgr) {
-        assert(!mgr && "mgr already set!");
-        mgr = Pmgr;
-    }
+    AddVarASTConsumer() {}
 
     bool HandleTopLevelDecl(DeclGroupRef DR) override {
         for (auto Decl : DR) {
@@ -65,7 +47,6 @@ class AddVarASTConsumer : public ASTConsumer {
     }
 
   private:
-    SourceManager *mgr;
     AddVarASTVisitor visitor;
 };
 
@@ -101,55 +82,32 @@ std::unique_ptr<CompilerInstance> getCompilerInstance(std::string infile) {
     return CI;
 }
 
-llvm::raw_ostream *getOutStream(std::string outfile) {
-    if (outfile.empty())
-        return &(llvm::outs());
-
-    std::error_code EC;
-    llvm::raw_fd_ostream *Out = new llvm::raw_fd_ostream(
-        outfile, EC, llvm::sys::fs::FA_Read | llvm::sys::fs::FA_Write);
-    assert(!EC && "Cannot open output file!");
-    return Out;
-}
-
 int main(int argc, char **argv) {
     assert(argc == 3 && "should take two args!");
     std::string infile = argv[1], outfile = argv[2];
 
     // init compiler instance
     std::unique_ptr<CompilerInstance> CI = getCompilerInstance(infile);
-    // get rewriter
     clang::ASTContext &ctx = CI->getASTContext();
-    clang::SourceManager &src_mger = ctx.getSourceManager();
-    clang::Rewriter rewriter;
-    rewriter.setSourceMgr(src_mger, ctx.getLangOpts());
+    clang::SourceManager &src_mgr = ctx.getSourceManager();
+    
+    // get RU
+    RewriteUtils::createInstance();
+    RU_sptr RUinstance = RewriteUtils::getInstance();
+    RUinstance->initialize(src_mgr, CI->getLangOpts());
+    
     // set consumer
-    assert(!consumer && "consumer already initialized");
-    consumer = new AddVarASTConsumer(rewriter);
-    consumer->setMgr(&CI->getSourceManager());
+    consumer = new AddVarASTConsumer();
     CI->setASTConsumer(std::unique_ptr<AddVarASTConsumer>(consumer));
+
     // create sema
     CI->createSema(TU_Complete, 0);
     DiagnosticsEngine &Diag = CI->getDiagnostics();
     Diag.setSuppressAllDiagnostics(true);
     Diag.setIgnoreAllWarnings(true);
 
+    // traverse AST
     clang::ParseAST(CI->getSema());
 
-    // write transformed file
-    FileID MainFileID = src_mger.getMainFileID();
-    const RewriteBuffer *RWBuf = rewriter.getRewriteBufferFor(MainFileID);
-    llvm::raw_ostream *os = getOutStream(outfile);
-    if (RWBuf) {
-        std::cout << "file changed" << std::endl;
-        *os << std::string(RWBuf->begin(), RWBuf->end());
-    } else {
-        std::cout << "file unchanged" << std::endl;
-        FileID MainFileID = src_mger.getMainFileID();
-        auto MainBuf = src_mger.getBufferOrNone(MainFileID);
-        *os << MainBuf->getBufferStart();
-    }
-    // flush and close stream
-    os->flush();
-    delete os;
+    RUinstance->outputTransformedFile(outfile);
 }

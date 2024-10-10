@@ -20,7 +20,11 @@ set(CLANG_LIBS
     clangRewrite
 )
 
-add_executable(mutates add_unused_arrays.cpp)
+add_executable(mutates 
+    add_unused_arrays.cpp
+    RewriteUtils.h
+    RewriteUtils.cpp
+)
 
 target_link_libraries(mutates
     LLVM
