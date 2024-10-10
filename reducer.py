@@ -60,10 +60,10 @@ class Reducer:
 
 if __name__ == "__main__":
     from filemanager import create_case_from_log
-    case = create_case_from_log("/root/CBouncy/case_535/tmprrr_9etw/log.json")
-    # for mutant in case.mutants:
-    #     mutant.reduce_patch(timeout=5)
-    # new_dir = mkdtemp(dir=case.case_dir)
-    # new_case = case.copyfiles(new_dir)
-    # new_case.save_log()
-    Reducer.reduce_case(case)
+    case = create_case_from_log("/root/CBouncy/tmp_ae_5cw68/case_2304/log.json")
+    for mutant in case.mutants:
+        mutant.reduce_patch(timeout=30)
+    new_dir = mkdtemp(dir=case.case_dir)
+    new_case = case.copyfiles(new_dir)
+    new_case.save_log()
+    # Reducer.reduce_case(case)

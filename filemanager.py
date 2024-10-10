@@ -137,7 +137,6 @@ class FileINFO:
                 res = COMPILER_CRASHED
         except subprocess.TimeoutExpired:
             res = COMPILE_TIMEOUT
-        print(1)
         # run
         if res == COMPILE_TIMEOUT or res == COMPILER_CRASHED:
             self.result_dict.update({args_str : res})

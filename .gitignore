@@ -1,3 +1,6 @@
 **
+!mutate_strategy/
+!.gitignore
+!CMakeLists.txt
 !*.md
 !*.py
