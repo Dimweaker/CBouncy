@@ -11,6 +11,7 @@ include_directories(${LLVM_INCLUDE_DIRS})
 
 link_directories(${LLVM_LIBRARY_DIRS})
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address  -fsanitize-recover=address -fno-stack-protector -fno-omit-frame-pointer")
 set(CLANG_LIBS
     clangAST
     clangBasic
@@ -21,12 +22,15 @@ set(CLANG_LIBS
 )
 
 add_executable(mutates 
-    add_unused_arrays.cpp
+    Mutator.cpp
+    AddUnusedVar.h
+    AddUnusedVar.cpp
     RewriteUtils.h
     RewriteUtils.cpp
 )
 
 target_link_libraries(mutates
+    asan
     LLVM
     ${CLANG_LIBS}
 )

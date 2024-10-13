@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Rewrite/Core/Rewriter.h"
 #include "llvm/Support/raw_ostream.h"
 
 RU_sptr RewriteUtils::RUinstance = nullptr;

@@ -3,11 +3,11 @@
 #include <memory>
 
 #include "clang/Basic/SourceManager.h"
-#include "clang/Rewrite/Core/Rewriter.h"
 
 namespace clang {
 class VarDecl;
 class LangOptions;
+class Rewriter;
 } // namespace clang
 
 namespace llvm {
