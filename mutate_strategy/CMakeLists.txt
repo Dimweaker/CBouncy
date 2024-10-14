@@ -11,7 +11,6 @@ include_directories(${LLVM_INCLUDE_DIRS})
 
 link_directories(${LLVM_LIBRARY_DIRS})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address  -fsanitize-recover=address -fno-stack-protector -fno-omit-frame-pointer")
 set(CLANG_LIBS
     clangAST
     clangBasic
@@ -19,6 +18,7 @@ set(CLANG_LIBS
     clangParse
     clangLex
     clangRewrite
+    clangSema
 )
 
 add_executable(mutates 

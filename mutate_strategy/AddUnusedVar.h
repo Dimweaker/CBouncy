@@ -1,34 +1,36 @@
 #pragma once
 #include <map>
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 
-class AddVarAnalysisVisitor;
+class VarAnalysisVisitor;
 
 namespace clang {
 class Decl;
 class DeclGroupRef;
 class ASTContext;
 class CompilerInstance;
-}
+class Scope;
+} // namespace clang
 
 using namespace clang;
+class VarAnalysisVisitor;
 
 class AddVarASTConsumer : public ASTConsumer {
-    friend class AddVarAnalysisVisitor;
+    friend class VarAnalysisVisitor;
+
   public:
-    AddVarASTConsumer();
+    AddVarASTConsumer(std::shared_ptr<CompilerInstance> &CI_sptr);
+    ~AddVarASTConsumer();
 
-    void setCompilerInstance(std::shared_ptr<CompilerInstance> CI_sptr) { CI = CI_sptr; };
-
-    bool HandleTopLevelDecl(DeclGroupRef DR) override;
-
-    void HandleTranslationUnit(ASTContext &ctx) override;
+    // bool HandleTopLevelDecl(DeclGroupRef) override;
+    // void HandleTranslationUnit(ASTContext &ctx) override;
 
   private:
-    std::map<Decl*, std::vector<VarDecl*>> VD_map; // nullptr means top level decl
+    std::map<Scope *, std::vector<VarDecl *>> VD_map;
     std::shared_ptr<CompilerInstance> CI;
+    VarAnalysisVisitor *visitor;
 };

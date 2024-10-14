@@ -1,8 +1,3 @@
-struct s1{
-    int v;
-    long u;
-};
-
 int a = 1;
 int b = 2, d;
 int *c = &a;
@@ -15,5 +10,6 @@ int main() {
 }
 
 int func() {
+    return 1;
 
 }

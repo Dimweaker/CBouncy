@@ -3,48 +3,67 @@
 
 #include "clang/Basic/Builtins.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Sema/Scope.h"
+#include "clang/Sema/Sema.h"
+#include "clang/Sema/ScopeInfo.h"
 
 #include "RewriteUtils.h"
 
-class AddVarAnalysisVisitor
-    : public RecursiveASTVisitor<AddVarAnalysisVisitor> {
-  public:
-    AddVarAnalysisVisitor(AddVarASTConsumer *consumer) : consumer(consumer) {}
+class VarAnalysisVisitor : public RecursiveASTVisitor<VarAnalysisVisitor> {
+    friend class AddVarASTConsumer;
 
-    bool VisitVarDecl(VarDecl *VD) {
-        Decl *father_decl = cast<Decl>(VD->getDeclContext());
-        if (father_decl) {
-            std::cout << "find a local VD " << VD->getNameAsString() << " in "
-                      << father_decl->getDeclKindName() << std::endl;
-            consumer->VD_map[father_decl].emplace_back(VD);
-        }
-        return true;
-    }
+  public:
+    VarAnalysisVisitor(AddVarASTConsumer *consumer)
+        : consumer(consumer), sema(nullptr) {}
+
+    bool VisitVarDecl(VarDecl *);
+    bool VisitFunctionDecl(FunctionDecl *FD);
 
   private:
     AddVarASTConsumer *consumer;
+    Sema *sema;
 };
 
-AddVarASTConsumer::AddVarASTConsumer()
-    // : analysis_visitor(std::make_unique<AddVarAnalysisVisitor>(this))
-{}
+bool VarAnalysisVisitor::VisitVarDecl(VarDecl *VD) {
+    if (!sema)
+        return true;
 
-bool AddVarASTConsumer::HandleTopLevelDecl(DeclGroupRef DR) {
-    for (DeclGroupRef::iterator decl_iter = DR.begin(); decl_iter != DR.end(); decl_iter++) {
-        VarDecl *VD = dyn_cast<VarDecl>(*decl_iter);
-        if (VD) {
-            // save global vars
-            std::cout << "find a global VD " << VD->getNameAsString()
-                      << std::endl;
-            VD_map[nullptr].emplace_back(VD);
-            continue;
-        } 
-        // else
-            // analysis_visitor->TraverseDecl(*decl_iter);
+    std::cout << "find a var " << VD->getNameAsString() << std::endl;
+    Scope *cur_scope = sema->getCurScope();
+    if (cur_scope) {
+        std::cout << "in scope " << cur_scope << std::endl;
     }
     return true;
 }
 
-void AddVarASTConsumer::HandleTranslationUnit(ASTContext &ctx) {
-    
+bool VarAnalysisVisitor::VisitFunctionDecl(FunctionDecl *FD) {
+    if (!sema)
+        return true;
+
+    std::cout << "find a func " << FD->getNameAsString() << std::endl;
+    Scope *cur_scope = sema->getCurScope();
+    if (cur_scope) {
+        std::cout << "in scope " << cur_scope << std::endl;
+    }
+    return true;
 }
+
+AddVarASTConsumer::AddVarASTConsumer(std::shared_ptr<CompilerInstance> &CI_sptr)
+    : visitor(new VarAnalysisVisitor(this)), CI(CI_sptr) {
+    Initialize(CI->getASTContext());
+}
+
+AddVarASTConsumer::~AddVarASTConsumer() { delete visitor; }
+
+// bool AddVarASTConsumer::HandleTopLevelDecl(DeclGroupRef DGR) { 
+//     for(DeclGroupRef::iterator iter = DGR.begin(); iter != DGR.end(); iter++) {
+//         visitor->TraverseDecl(*iter);
+//     }
+//     return true;
+// }
+
+// void AddVarASTConsumer::HandleTranslationUnit(ASTContext &ctx) {
+//     // traverse again
+//     visitor->sema = &CI->getSema();
+//     visitor->TraverseDecl(ctx.getTranslationUnitDecl());
+// }

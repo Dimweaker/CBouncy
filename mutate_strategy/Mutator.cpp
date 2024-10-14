@@ -56,15 +56,14 @@ int main(int argc, char **argv) {
 
     // set consumer
     std::unique_ptr<AddVarASTConsumer> consumer =
-        std::make_unique<AddVarASTConsumer>();
-    consumer->setCompilerInstance(CI);
+        std::make_unique<AddVarASTConsumer>(CI);
     CI->setASTConsumer(std::move(consumer));
 
     // create sema
     CI->createSema(TU_Complete, 0);
     DiagnosticsEngine &Diag = CI->getDiagnostics();
-    Diag.setSuppressAllDiagnostics(true);
-    Diag.setIgnoreAllWarnings(true);
+    Diag.setSuppressAllDiagnostics(false);
+    Diag.setIgnoreAllWarnings(false);
 
     // traverse AST
     clang::ParseAST(CI->getSema());
