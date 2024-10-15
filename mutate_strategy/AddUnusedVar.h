@@ -27,7 +27,7 @@ class AddVarASTConsumer : public ASTConsumer {
     ~AddVarASTConsumer();
 
     // bool HandleTopLevelDecl(DeclGroupRef) override;
-    // void HandleTranslationUnit(ASTContext &ctx) override;
+    void HandleTranslationUnit(ASTContext &ctx) override;
 
   private:
     std::map<Scope *, std::vector<VarDecl *>> VD_map;

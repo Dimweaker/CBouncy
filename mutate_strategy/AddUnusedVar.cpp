@@ -62,8 +62,7 @@ AddVarASTConsumer::~AddVarASTConsumer() { delete visitor; }
 //     return true;
 // }
 
-// void AddVarASTConsumer::HandleTranslationUnit(ASTContext &ctx) {
-//     // traverse again
-//     visitor->sema = &CI->getSema();
-//     visitor->TraverseDecl(ctx.getTranslationUnitDecl());
-// }
+void AddVarASTConsumer::HandleTranslationUnit(ASTContext &ctx) {
+    visitor->sema = &CI->getSema();
+    visitor->TraverseDecl(ctx.getTranslationUnitDecl());
+}
