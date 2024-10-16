@@ -5,7 +5,6 @@
 
 #include "clang/Basic/Builtins.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/Sema/ScopeInfo.h"
 
 #include "RewriteUtils.h"
 
@@ -16,8 +15,6 @@ std::string Cqualifiers[] = {"const", "volatile", "__restrict"};
  * here, Parser has already finished parsing, thus calling @param getCurScope()
  * in @param VarAnalysisVisitor makes no sense, it'll always return a scope
  * of type Top Decl.
- *
- * the visitor visits and stores VD in order
  */
 
 class VarScope {
@@ -31,6 +28,19 @@ class VarScope {
     void addVD(std::vector<VarDecl *> buf) {
         for (auto &VD : buf)
             VDs.emplace_back(VD);
+    }
+
+    void print(int depth=0) {
+        for(int i=0; i<depth; i++)
+            std::cout << "\t";
+        std::cout << "scope: \n";
+        for(auto VD: VDs) {
+            for(int i=0; i<=depth; i++)
+                std::cout << "\t";
+            std::cout << "VD " << VD->getNameAsString() << "\n";
+        }
+        for(auto scope : children)
+            scope->print(depth+1);
     }
 
   private:
@@ -47,16 +57,44 @@ class VarAnalysisVisitor : public RecursiveASTVisitor<VarAnalysisVisitor> {
         : consumer(consumer), src_mgr(&consumer->CI->getSourceManager()) {}
 
     bool VisitVarDecl(VarDecl *);
-    bool VisitFunctionDecl(FunctionDecl *);
-    
-    bool VisitForStmt(ForStmt *);
     bool TraverseIfStmt(IfStmt *);
-    // bool VisitIfStmt(IfStmt *);
+    bool TraverseSwitchStmt(SwitchStmt *SS);
+
+#ifndef TRAVERSE_BODY
+#define TRAVERSE_BODY(CLASS)                                                   \
+    bool Traverse##CLASS(CLASS *ptr) {                                         \
+        if (Stmt *Body = ptr->getBody()) {                                     \
+            push_VS();                                                         \
+            TraverseStmt(Body);                                                \
+            pop_VS();                                                          \
+        }                                                                      \
+        return true;                                                           \
+    }
+#endif
+    TRAVERSE_BODY(FunctionDecl)
+    TRAVERSE_BODY(ForStmt)
+    TRAVERSE_BODY(WhileStmt)
+    TRAVERSE_BODY(DoStmt)
+#undef TRAVERSE_BODY
 
   private:
     AddVarASTConsumer *consumer;
     SourceManager *src_mgr;
-    std::vector<VarDecl *> VDBuffer;
+    std::stack<VarScope *> VS_stack;
+
+    void push_VS() {
+        if (VS_stack.empty())
+            VS_stack.push(new VarScope());
+        else
+            VS_stack.push(new VarScope(VS_stack.top()));
+    }
+
+    VarScope *pop_VS() {
+        assert(!VS_stack.empty() && "pop before pushing!");
+        VarScope *top = VS_stack.top();
+        VS_stack.pop();
+        return top;
+    };
 };
 
 void replaceAll(std::string &s, const std::string &pattern,
@@ -102,56 +140,55 @@ bool VarAnalysisVisitor::VisitVarDecl(VarDecl *VD) {
         replaceAll(type, qualifier, "");
     }
     normalize(type);
-    std::cout << "visit VD " << VD->getNameAsString()<< std::endl;
 
-    VDBuffer.emplace_back(VD);
-    return true;
-}
+    VS_stack.top()->addVD(VD);
 
-bool VarAnalysisVisitor::VisitFunctionDecl(FunctionDecl *FD) {
-    std::cout << "visit FD" << std::endl;
-    return true;
-}
-
-bool VarAnalysisVisitor::VisitForStmt(ForStmt *FS) {
-    std::cout << "visit FS" << std::endl;
     return true;
 }
 
 bool VarAnalysisVisitor::TraverseIfStmt(IfStmt *IS) {
-    if (!getDerived().VisitIfStmt(IS))
-        return false;
-
     if (Expr *Cond = IS->getCond()) {
-        std::cout << "visit Cond" << std::endl;
         if (!TraverseStmt(Cond))
             return false;
     }
 
-    if (Stmt *Then = IS->getThen()) {
-        std::cout << "visit Then" << std::endl;
-        if (!TraverseStmt(Then))
-            return false;
+#ifndef TRAVERSE_STMT
+#define TRAVERSE_STMT(BRANCH)                                                  \
+    if (Stmt *BRANCH = IS->get##BRANCH()) {                                    \
+        push_VS();                                                             \
+        TraverseStmt(BRANCH);                                                  \
+        pop_VS();                                                              \
     }
 
-    if (Stmt *Else = IS->getElse()) {
-        std::cout << "visit Else" << std::endl;
-        if (!TraverseStmt(Else))
-            return false;
-    }
+#endif
+    TRAVERSE_STMT(Then)
+    TRAVERSE_STMT(Else)
+#undef TRAVERSE_STMT
 
+    return true;
+}
+
+bool VarAnalysisVisitor::TraverseSwitchStmt(SwitchStmt *SS) {
+    for (SwitchCase *Case = SS->getSwitchCaseList(); Case;
+         Case = Case->getNextSwitchCase()) {
+        push_VS();
+        TraverseStmt(Case);
+        pop_VS();
+    }
     return true;
 }
 
 AddVarASTConsumer::AddVarASTConsumer(std::shared_ptr<CompilerInstance> &CI_sptr)
-    : visitor(new VarAnalysisVisitor(this)), CI(CI_sptr) {}
+    : visitor(new VarAnalysisVisitor(this)), CI(CI_sptr), VS_root(nullptr) {}
 
 AddVarASTConsumer::~AddVarASTConsumer() { delete visitor; }
 
-bool AddVarASTConsumer::HandleTopLevelDecl(DeclGroupRef DGR) { 
-    return true;
-}
+bool AddVarASTConsumer::HandleTopLevelDecl(DeclGroupRef DGR) { return true; }
 
 void AddVarASTConsumer::HandleTranslationUnit(ASTContext &ctx) {
+    visitor->push_VS();
     visitor->TraverseTranslationUnitDecl(ctx.getTranslationUnitDecl());
+    VS_root = visitor->pop_VS();
+
+    VS_root->print();
 }
