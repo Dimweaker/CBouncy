@@ -3,7 +3,7 @@ from multiprocessing import Process
 from filemanager import *
 from utils import send_mail, zip_dir
 from configs import (MAIL_CONFIG,
-                     UNCOMPILED, COMPILER_CRASHED, COMPILE_TIMEOUT,
+                     COMPILER_CRASHED, COMPILE_TIMEOUT,
                      RUNTIME_CRASHED, RUNTIME_TIMEOUT)
 
 

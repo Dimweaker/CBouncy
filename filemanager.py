@@ -36,7 +36,7 @@ class FileINFO:
             `Compile failed`, `Timeout`, etc.
         fileinfo: A dictionary contains multiple attributes of this program.
     """
-    def __init__(self, filepath: str, compiler: str = "gcc",
+    def __init__(self, filepath: str, compiler: str = "gcc-14",
                  args: list[str] = None):
         """
         Args:

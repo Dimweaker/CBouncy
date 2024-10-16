@@ -15,14 +15,14 @@ class raw_ostream;
 }
 
 class RewriteUtils;
-using RU_sptr = std::shared_ptr<RewriteUtils>;
+using RU_Sptr = std::shared_ptr<RewriteUtils>;
 using namespace clang;
 using namespace llvm;
 
 class RewriteUtils {
   public:
     static void createInstance();
-    static RU_sptr getInstance();
+    static RU_Sptr getInstance();
 
     ~RewriteUtils();
 
@@ -40,7 +40,7 @@ class RewriteUtils {
     SourceLocation getLocAfterSymbol(SourceLocation, char);
 
   private:
-    static RU_sptr RUinstance;
+    static RU_Sptr RUinstance;
 
     std::unique_ptr<Rewriter> rewriter;
     SourceManager *src_mgr;

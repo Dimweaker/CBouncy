@@ -61,15 +61,6 @@ std::shared_ptr<CompilerInstance> getCompilerInstance(std::string infile) {
     return std::move(CI);
 }
 
-class TestFrontendAction : public ASTFrontendAction {
-public:
-    std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef Infile) override {
-        std::unique_ptr<AddVarASTConsumer> consumer =
-            std::make_unique<AddVarASTConsumer>(CI);
-        return std::move(consumer);
-    }
-};
-
 int main(int argc, char **argv) {
     assert(argc == 3 && "should take two args!");
     std::string infile = argv[1], outfile = argv[2];
@@ -81,7 +72,7 @@ int main(int argc, char **argv) {
 
     // get RewriteUtils
     RewriteUtils::createInstance();
-    RU_sptr RUinstance = RewriteUtils::getInstance();
+    RU_Sptr RUinstance = RewriteUtils::getInstance();
     RUinstance->initialize(src_mgr, CI->getLangOpts());
 
     // set consumer

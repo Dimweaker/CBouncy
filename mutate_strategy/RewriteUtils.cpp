@@ -6,14 +6,14 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "llvm/Support/raw_ostream.h"
 
-RU_sptr RewriteUtils::RUinstance = nullptr;
+RU_Sptr RewriteUtils::RUinstance = nullptr;
 
 void RewriteUtils::createInstance() {
     assert(!RUinstance && "RU instance already created!");
-    RUinstance = RU_sptr(new RewriteUtils());
+    RUinstance = RU_Sptr(new RewriteUtils());
 }
 
-RU_sptr RewriteUtils::getInstance() {
+RU_Sptr RewriteUtils::getInstance() {
     assert(RUinstance && "RU instance not created!");
     return RUinstance;
 }

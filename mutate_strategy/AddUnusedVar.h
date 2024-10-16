@@ -5,6 +5,7 @@
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/Type.h"
 
 class VarAnalysisVisitor;
 
@@ -13,10 +14,11 @@ class Decl;
 class DeclGroupRef;
 class ASTContext;
 class CompilerInstance;
-class Scope;
 } // namespace clang
 
 using namespace clang;
+
+class VarScope;
 class VarAnalysisVisitor;
 
 class AddVarASTConsumer : public ASTConsumer {
@@ -26,11 +28,11 @@ class AddVarASTConsumer : public ASTConsumer {
     AddVarASTConsumer(std::shared_ptr<CompilerInstance> &CI_sptr);
     ~AddVarASTConsumer();
 
-    // bool HandleTopLevelDecl(DeclGroupRef) override;
+    bool HandleTopLevelDecl(DeclGroupRef) override;
     void HandleTranslationUnit(ASTContext &ctx) override;
 
   private:
-    std::map<Scope *, std::vector<VarDecl *>> VD_map;
     std::shared_ptr<CompilerInstance> CI;
     VarAnalysisVisitor *visitor;
+    VarScope *VS_root;
 };
