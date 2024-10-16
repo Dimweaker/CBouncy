@@ -126,7 +126,7 @@ AGGRESIVE_OPTS = tuple(
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
-OPT_FORMAT = '__attribute__((optimize("{}")))'
+OPT_FORMAT = '__attribute__((optimize("-O0,{}")))'
 
 
 SCRIPT = """#!/bin/bash
@@ -140,4 +140,8 @@ exit $exit_code
 """
 
 
-FENCE = '#define FENCE __asm__ __volatile__("" ::: "memory")\n'
+FENCE_DEFINITION = '#define FENCE __asm__ __volatile__("" ::: "memory")\n'
+TYPES = ("int8_t", "int16_t", "int32_t", "int64_t",
+         "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+         "struct\s*?\S+", "union\s*?\S+")
+TYPES_PATTERN = "|".join(TYPES)
