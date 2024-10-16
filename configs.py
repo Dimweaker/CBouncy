@@ -126,7 +126,7 @@ AGGRESIVE_OPTS = tuple(
 
 PREFIX_TEXT = "/\* --- FORWARD DECLARATIONS --- \*/"
 SUFFIX_TEXT = "/\* --- FUNCTIONS --- \*/"
-OPT_FORMAT = '__attribute__((optimize("{}")))'
+OPT_FORMAT = '__attribute__((optimize("-O0,{}")))'
 
 
 SCRIPT = """#!/bin/bash
