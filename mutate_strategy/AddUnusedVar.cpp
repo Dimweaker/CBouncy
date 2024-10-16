@@ -49,8 +49,9 @@ class VarAnalysisVisitor : public RecursiveASTVisitor<VarAnalysisVisitor> {
     bool VisitVarDecl(VarDecl *);
     bool VisitFunctionDecl(FunctionDecl *);
     
-    bool VisitForStmt(ForStmt *FS);
-    bool VisitIfStmt(IfStmt *IS);
+    bool VisitForStmt(ForStmt *);
+    bool TraverseIfStmt(IfStmt *);
+    // bool VisitIfStmt(IfStmt *);
 
   private:
     AddVarASTConsumer *consumer;
@@ -117,8 +118,28 @@ bool VarAnalysisVisitor::VisitForStmt(ForStmt *FS) {
     return true;
 }
 
-bool VarAnalysisVisitor::VisitIfStmt(IfStmt *IS) {
-    std::cout << "visit IS" << std::endl;
+bool VarAnalysisVisitor::TraverseIfStmt(IfStmt *IS) {
+    if (!getDerived().VisitIfStmt(IS))
+        return false;
+
+    if (Expr *Cond = IS->getCond()) {
+        std::cout << "visit Cond" << std::endl;
+        if (!TraverseStmt(Cond))
+            return false;
+    }
+
+    if (Stmt *Then = IS->getThen()) {
+        std::cout << "visit Then" << std::endl;
+        if (!TraverseStmt(Then))
+            return false;
+    }
+
+    if (Stmt *Else = IS->getElse()) {
+        std::cout << "visit Else" << std::endl;
+        if (!TraverseStmt(Else))
+            return false;
+    }
+
     return true;
 }
 
