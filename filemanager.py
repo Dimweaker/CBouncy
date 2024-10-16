@@ -9,11 +9,11 @@ from shutil import copyfile
 from copy import deepcopy
 from typing import Type
 
-from configs import (CSMITH_HOME, UNCOMPILED, FENCE,
+from configs import (CSMITH_HOME, UNCOMPILED, FENCE_DEFINITION,
                      COMPILE_TIMEOUT, COMPILER_CRASHED,
                      RUNTIME_TIMEOUT, RUNTIME_CRASHED,
                      COMPLEX_OPTS_GCC, SIMPLE_OPTS, AGGRESIVE_OPTS,
-                     OPT_FORMAT, PREFIX_TEXT, SUFFIX_TEXT)
+                     OPT_FORMAT, PREFIX_TEXT, SUFFIX_TEXT, TYPES_PATTERN)
 
 
 class FileINFO:
@@ -173,11 +173,21 @@ class FileINFO:
 
     def add_fence(self, prob: float = 0.05):
         code = self.text
-        if FENCE not in code:
-            code = FENCE + code
+        if FENCE_DEFINITION not in code:
+            code = FENCE_DEFINITION + code
         funcs = re.findall(r"func_\d+?\([^;]*?\)\s?{.+?\n\}", code, re.S)
         for func in funcs:
             new_func = re.sub(r";\n", lambda _: ";\n" if random.random() > prob else ";\nFENCE;\n", func)
+            code = code.replace(func, new_func)
+        self.write_to_file(code)
+
+    def add_volatile(self, prob: float = 0.05):
+        code = self.text
+        funcs = re.findall(r"func_\d+?\([^;]*?\)\s?{.+?\n\}", code, re.S)
+        for func in funcs:
+            new_func = re.sub(f"({TYPES_PATTERN})\s+?\**?(\s*?const\s*?)?\s*?\S+?\s*?=?.*?;",
+                              lambda x: x.group() if random.random() > prob else f"volatile {x.group()}",
+                              func)
             code = code.replace(func, new_func)
         self.write_to_file(code)
 
@@ -252,6 +262,7 @@ class MutantFileINFO(FileINFO):
         res = self.result_dict.copy()
 
         for func, opts in funcs.items():
+            print(f"Simplify {func} in {self.basename}")
             # 首先尝试删除所有选项
             self.function_dict[func].clear()
             text = self.sub_opt(self.function_dict, self.text)
@@ -271,6 +282,8 @@ class MutantFileINFO(FileINFO):
                         self.process_file(timeout=timeout, comp_args=[glob_opt])
                     if not all(res[glob_opt] == self.result_dict[glob_opt] for glob_opt in res.keys()):
                         self.function_dict[func].append(opt)
+                        print(self.result_dict)
+                        print(f"Failed to reduce {opt} from {func} in {self.basename}")
                     else:
                         print(f"Reduced {opt} from {func} in {self.basename}")
         text = self.sub_opt(self.function_dict, self.text)
@@ -340,6 +353,7 @@ class CaseManager:
             mutant_file = f"{self.case_dir}/mutant_gcc_{i}.c"
             mutant = self.orig.mutate(mutant_file, max_opts, candidates_GCC)
             mutant.add_fence()
+            # mutant.add_volatile()
             self.add_mutant(mutant)
 
     @property
