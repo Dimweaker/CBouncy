@@ -23,5 +23,5 @@ def cut_parts(ori_code: str):
 
 if __name__ == "__main__":
     with open("orig.c", "r") as f:
-        ori_code = f.read()
-    cut_parts(ori_code)
+        code = f.read()
+    cut_parts(code)
